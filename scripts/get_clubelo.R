@@ -28,9 +28,12 @@ if (is.na(start_date)) {
 end_date <- Sys.Date()
 
 # ---- Generate sequence of dates to download ----
-download_dates <- seq(start_date, end_date, by = "day")
+if (start_date > end_date) {
+  stop("Start date is after end date — nothing to download.")
+}
+download_dates <- as.character(seq(start_date, end_date, by = "day"))
 
-# ---- Download each date’s Elo ratings ----
+# ---- Download daily Elo ratings ----
 for (mydate in download_dates) {
   message("Downloading Elo ratings for ", mydate)
   api_url <- paste0("http://api.clubelo.com/", mydate)
