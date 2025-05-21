@@ -10,6 +10,11 @@
 library(tidyverse)
 library(here)
 
+# ---- Load utility functions ----
+
+source(here("utils", "elo_helper_functions.R"))
+source(here("utils", "compute_elo_columns.R"))
+
 # ---- Load data ----
 
 matches <- read_csv(here("data", "england_matches_with_elo.csv"))
@@ -25,13 +30,6 @@ matches <- read_csv(here("data", "england_matches_with_elo.csv"))
 # away_goals
 # home_elo
 # away_elo
-
-# ---- Add elo_diff, result, margin of victory ----
-
-matches$elo_diff <- matches$home_elo - matches$away_elo
-matches$result <- ifelse(matches$home_goals > matches$away_goals, 1,
-                         ifelse(matches$home_goals < matches$away_goals, 0, 0.5))
-matches$margin <- matches$home_goals - matches$away_goals
 
 #############################
 ### How Elo is calculated ###
@@ -57,65 +55,9 @@ matches$margin <- matches$home_goals - matches$away_goals
 # Home advantage is calculated daily for each league as the sum of Elo_change
 # for all matches multiplied by 0.075
 
-# ---- Calculate predictions and daily home advantage factor ----
+# Calculate the Elo columns
+matches <- compute_elo_columns(matches)
 
-get_k <- function(m) {
-  k = case_when(
-    m <= 1 ~ 20,
-    m == 2 ~ 30,
-    m == 3 ~ 35,
-    m >= 4 ~ 20 * (1.75 + (m - 3) / 8)
-  )
-  return(k)
-}
-
-get_prediction <- function(elo_diff, home_adv) {
-  d <- elo_diff + home_adv
-  prediction <- 1 / (10 ^ (-d / 400) + 1)
-  return(prediction)
-}
-
-get_elo_change <- function(prediction, result, margin) {
-  k <- get_k(margin)
-  elo_change <- (result - prediction) * k
-  return(elo_change)
-}
-
-matches <- matches %>% arrange(match_date) # Ensure correct order
-
-# Create require columns for Elo data
-n <- nrow(matches)
-matches$home_advantage <- numeric(n)
-matches$prediction <- numeric(n)
-matches$elo_change <- numeric(n)
-
-# Initialize variables for loop
-current_date <- matches$match_date[1]
-home_adv <- 0
-daily_indices <- c()
-
-for (i in 1:n) {
-  
-  daily_indices <- c(daily_indices, i)
-  matches$home_advantage[i] <- home_adv
-  matches$prediction[i] <- get_prediction(matches$elo_diff[i], home_adv)
-
-  matches$elo_change[i] <- get_elo_change(
-    matches$prediction[i],
-    matches$result[i],
-    abs(matches$margin[i])
-  )
-  
-  if (i == n | matches$match_date[i+1] != current_date) {
-    
-    daily_elo_sum <- sum(matches$elo_change[daily_indices])
-    home_adv <- home_adv + 0.075 * daily_elo_sum
-    
-    daily_indices <- c()
-    if (i < n) current_date <- matches$match_date[i+1]
-    
-  }
-}
 
 # ---- See how predictions compare to results ----
 
