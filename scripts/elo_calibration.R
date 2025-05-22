@@ -120,23 +120,26 @@ goal_counts <- matches_long %>%
 
 # Add Poisson probabilities
 lambda_all <- mean(matches_long$goals_for)
+total_n <- sum(goal_counts$observed)
+
 goal_counts <- goal_counts %>%
   mutate(
     poisson_prob = dpois(goals_for, lambda_all),
-    poisson = poisson_prob * sum(observed)
+    poisson = poisson_prob,
+    observed = observed / total_n  # convert to relative frequency
   )
 
 # Convert to long format for plotting
 goal_plot_data <- goal_counts %>%
-  pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "count")
+  pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
 
-ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = count, fill = type)) +
+ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
   scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
   labs(
     title = "Observed vs Poisson Distribution of Goals Scored",
     x = "Goals Scored",
-    y = "Count"
+    y = "Relative Frequency"
   ) +
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -145,6 +148,7 @@ ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = count, fill = type)) +
 plot_conditional <- function(opp_goals) {
   subset_df <- matches_long %>% filter(goals_against == opp_goals)
   lambda <- mean(subset_df$goals_for)
+  total_n <- nrow(subset_df)
   
   observed <- subset_df %>%
     count(goals_for) %>%
@@ -153,19 +157,22 @@ plot_conditional <- function(opp_goals) {
   observed <- observed %>%
     mutate(
       poisson_prob = dpois(goals_for, lambda),
-      poisson = poisson_prob * sum(observed)
+      poisson = poisson_prob,
+      observed = observed / total_n  # convert to relative frequency
     ) %>%
-    pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "count")
+    pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
   
-  ggplot(observed, aes(x = as.factor(goals_for), y = count, fill = type)) +
-    geom_col(position = "dodge") +
+  ggplot(observed, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+    geom_col(position = position_dodge(width=0.6), width=0.5) +
     scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
     labs(
       title = paste("Goals Scored | Opponent Scored", opp_goals),
       x = "Goals Scored",
-      y = "Count"
+      y = "Relative Frequency",
+      fill = element_blank()
     ) +
-    theme(plot.title = element_text(hjust = 0.5))
+    theme(plot.title = element_text(hjust = 0.5),
+          legend.key.size=unit(0.2, 'cm'))
 }
 
 plot_conditional(0) + plot_conditional(1) + plot_conditional(2) + plot_conditional(3)
