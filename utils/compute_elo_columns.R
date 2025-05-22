@@ -61,5 +61,6 @@ compute_elo_columns <- function(matches) {
       
     }
   }
+  matches <- matches[matches$season != "1946-1947",] # Burn-in first season for Elo
   return(matches)
 }

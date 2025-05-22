@@ -9,6 +9,7 @@
 
 library(tidyverse)
 library(here)
+library(patchwork)
 
 # ---- Load utility functions ----
 
@@ -62,7 +63,6 @@ matches <- compute_elo_columns(matches)
 # ---- See how predictions compare to results ----
 
 # Bin into deciles based on predicted probability
-matches <- matches[matches$season != "1946-1947",] # Burn-in first season for Elo
 deciles <- matches %>%
   mutate(pred_decile = ntile(prediction, 10)) %>%
   group_by(pred_decile) %>%
@@ -87,4 +87,90 @@ ggplot(deciles, aes(x = avg_prediction, y = avg_result)) +
   ) +
   theme(plot.title = element_text(hjust = 0.5))
 
-write.csv(matches, file=here("data", "england_matches_elo_with_predictions.csv"))
+# ---- Inspect goal distribution vs. Elo difference ----
+
+# First create long DF with home and away combined
+
+homes <- data.frame(goals_for = matches$home_goals,
+                    goals_against = matches$away_goals,
+                    net_elo = matches$elo_diff + matches$home_advantage)
+aways <- data.frame(goals_for = matches$away_goals,
+                    goals_against = matches$home_goals,
+                    net_elo = -matches$elo_diff - matches$home_advantage)
+
+matches_long <- rbind(homes, aways)
+
+# Generalized additive model
+ggplot(matches_long, aes(x = net_elo, y = goals_for)) +
+  geom_jitter(width = 10, height = 0.1, alpha = 0.2, color = "dodgerblue3") +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), color = "goldenrod2", se = FALSE) +
+  labs(
+    title = "Goals Scored vs Net Elo Difference (GAM Fit)",
+    x = "Net Elo Difference",
+    y = "Goals Scored"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# ---- Compare observed goals vs. Poisson distribution ----
+
+# Calculate observed frequencies
+goal_counts <- matches_long %>%
+  count(goals_for) %>%
+  rename(observed = n)
+
+# Add Poisson probabilities
+lambda_all <- mean(matches_long$goals_for)
+goal_counts <- goal_counts %>%
+  mutate(
+    poisson_prob = dpois(goals_for, lambda_all),
+    poisson = poisson_prob * sum(observed)
+  )
+
+# Convert to long format for plotting
+goal_plot_data <- goal_counts %>%
+  pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "count")
+
+ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = count, fill = type)) +
+  geom_col(position = position_dodge(width=0.7), width=0.5) +
+  scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
+  labs(
+    title = "Observed vs Poisson Distribution of Goals Scored",
+    x = "Goals Scored",
+    y = "Count"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# ---- Compare observed vs Poisson, conditional on opponent goals ----
+
+plot_conditional <- function(opp_goals) {
+  subset_df <- matches_long %>% filter(goals_against == opp_goals)
+  lambda <- mean(subset_df$goals_for)
+  
+  observed <- subset_df %>%
+    count(goals_for) %>%
+    rename(observed = n)
+  
+  observed <- observed %>%
+    mutate(
+      poisson_prob = dpois(goals_for, lambda),
+      poisson = poisson_prob * sum(observed)
+    ) %>%
+    pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "count")
+  
+  ggplot(observed, aes(x = as.factor(goals_for), y = count, fill = type)) +
+    geom_col(position = "dodge") +
+    scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
+    labs(
+      title = paste("Goals Scored | Opponent Scored", opp_goals),
+      x = "Goals Scored",
+      y = "Count"
+    ) +
+    theme(plot.title = element_text(hjust = 0.5))
+}
+
+plot_conditional(0) + plot_conditional(1) + plot_conditional(2) + plot_conditional(3)
+
+# We see:
+
+# - zero inflation
+# - draw inflation
