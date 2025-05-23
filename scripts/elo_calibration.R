@@ -145,8 +145,8 @@ ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type))
 
 # ---- Compare observed vs Poisson, conditional on opponent goals ----
 
-plot_conditional <- function(opp_goals) {
-  subset_df <- matches_long %>% filter(goals_against == opp_goals)
+plot_conditional <- function(df, opp_goals) {
+  subset_df <- df %>% filter(goals_against == opp_goals)
   lambda <- mean(subset_df$goals_for)
   total_n <- nrow(subset_df)
   
@@ -175,9 +175,101 @@ plot_conditional <- function(opp_goals) {
           legend.key.size=unit(0.2, 'cm'))
 }
 
-plot_conditional(0) + plot_conditional(1) + plot_conditional(2) + plot_conditional(3)
+plot_conditional(matches_long, 0) + plot_conditional(matches_long, 1) + 
+  plot_conditional(matches_long, 2) + plot_conditional(matches_long, 3)
 
 # We see:
 
 # - zero inflation
 # - draw inflation
+# - draw pulls from neighboring scores
+
+# ---- Histogram of Elo diff distribution ----
+
+ggplot(matches_long, aes(x=net_elo)) +
+  geom_histogram(color="grey", fill="dodgerblue3", boundary=0) +
+  labs(title = "Histogram of Net Elo Difference",
+       x = "Elo Difference")
+
+# ---- Conditional Poisson comparisons for close games
+
+close_elo <- subset(matches_long, net_elo >= -100 & net_elo <= 100)
+
+plot_conditional(close_elo, 0) + plot_conditional(close_elo, 1) + 
+  plot_conditional(close_elo, 2) + plot_conditional(close_elo, 3)
+
+# ---- Observed goals vs. Poisson for favs only ----
+
+favs <- subset(matches_long, net_elo > 0)
+
+# Calculate observed frequencies
+goal_counts <- favs %>%
+  count(goals_for) %>%
+  rename(observed = n)
+
+# Add Poisson probabilities
+lambda_all <- mean(favs$goals_for)
+total_n <- sum(goal_counts$observed)
+
+goal_counts <- goal_counts %>%
+  mutate(
+    poisson_prob = dpois(goals_for, lambda_all),
+    poisson = poisson_prob,
+    observed = observed / total_n  # convert to relative frequency
+  )
+
+# Convert to long format for plotting
+goal_plot_data <- goal_counts %>%
+  pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
+
+ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+  geom_col(position = position_dodge(width=0.7), width=0.5) +
+  scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
+  labs(
+    title = "Observed vs Poisson for Favourites Only",
+    x = "Goals Scored",
+    y = "Relative Frequency"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# ---- Conditional Poisson comparisons for underdogs
+
+underdogs <- subset(matches_long, net_elo < 0)
+
+plot_conditional(underdogs, 0) + plot_conditional(underdogs, 1) + 
+  plot_conditional(underdogs, 2) + plot_conditional(underdogs, 3)
+
+
+# ---- Observed goals vs. Poisson for close favs only ----
+
+favs <- subset(matches_long, net_elo > 0 & net_elo <= 100)
+
+# Calculate observed frequencies
+goal_counts <- favs %>%
+  count(goals_for) %>%
+  rename(observed = n)
+
+# Add Poisson probabilities
+lambda_all <- mean(favs$goals_for)
+total_n <- sum(goal_counts$observed)
+
+goal_counts <- goal_counts %>%
+  mutate(
+    poisson_prob = dpois(goals_for, lambda_all),
+    poisson = poisson_prob,
+    observed = observed / total_n  # convert to relative frequency
+  )
+
+# Convert to long format for plotting
+goal_plot_data <- goal_counts %>%
+  pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
+
+ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+  geom_col(position = position_dodge(width=0.7), width=0.5) +
+  scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
+  labs(
+    title = "Observed vs Poisson for Favourites Only",
+    x = "Goals Scored",
+    y = "Relative Frequency"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
