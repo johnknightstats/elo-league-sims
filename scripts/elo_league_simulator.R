@@ -16,6 +16,12 @@ library(progressr)
 source(here("utils", "elo_helper_functions.R"))
 source(here("utils", "compute_elo_columns.R"))
 
+# ---- Use parallel processing ----
+
+available_cores <- parallel::detectCores(logical = TRUE)
+safe_cores <- max(1, available_cores - 1)
+plan(multisession, workers = safe_cores)
+
 # ---- Load data ----
 
 matches <- read_csv(here("data", "england_matches_with_elo.csv")) %>%
@@ -108,8 +114,60 @@ get_standings <- function(df, season, date) {
     mutate(
       GD = goals_for - goals_against,
       GA = ifelse(goals_against == 0, 1, goals_for / goals_against)
-    ) %>%
-    arrange(desc(pts), desc(!!sym(tiebreaker)))
+    )
+  
+  ### Points deductions ###
+  if (season %in% c("1990-1991", "1996-1997", "2009-2010", "2023-2024")) {
+    standings <- standings %>%
+      mutate(
+        pts = case_when(
+          season == "1990-1991" & team == "Arsenal"            ~ pts - 2,
+          season == "1990-1991" & team == "Manchester United"  ~ pts - 1,
+          season == "1996-1997" & team == "Middlesbrough"      ~ pts - 3,
+          season == "2009-2010" & team == "Portsmouth"         ~ pts - 9,
+          season == "2023-2024" & team == "Everton"            ~ pts - 6,
+          season == "2023-2024" & team == "Nottingham Forest"  ~ pts - 4,
+          TRUE                                                 ~ pts
+        )
+      )
+  }
+  
+  
+  
+  # Sort by point then tiebreakers
+  standings <- standings %>%
+    arrange(
+      desc(pts),
+      desc(!!sym(tiebreaker)),
+      desc(goals_for)
+    )
+
+  standings <- standings %>%
+    mutate(rank = dense_rank(desc(pts) * 1e6 + desc(!!sym(tiebreaker)) * 1e3 + desc(goals_for)))
+  
+  # Check if any ties exist after tiebreakers
+  if (n_distinct(standings$rank) < nrow(standings)) {
+    # If so, draw lots
+    standings <- standings %>%
+      group_by(rank) %>%
+      mutate(
+        tied = n() > 1
+      ) %>%
+      ungroup()
+    
+    standings <- standings %>%
+      group_by(rank) %>%
+      mutate(
+        rank = if (tied[1]) {
+          rank + (rank(runif(n())) - 1)
+        } else {
+          rank
+        }
+      ) %>%
+      ungroup() %>%
+      select(-tied, -rank)
+  }
+  
   
   # Get each team’s Elo from their first match *after* the given date
   next_match_elos <- df %>%
@@ -155,14 +213,14 @@ get_standings <- function(df, season, date) {
   return(standings)
 }
 
-get_final_standings <- function(season) {
-  final_day <- max(matches$match_date[matches$season == season])
-  final_standings <- get_standings(season, final_day)
+get_final_standings <- function(df, season) {
+  final_day <- max(df$match_date[df$season == season])
+  final_standings <- get_standings(df, season, final_day)
   return(final_standings)
 }
 
-get_champions <- function(season) {
-  final_standings <- get_final_standings(season)
+get_champions <- function(df, season) {
+  final_standings <- get_final_standings(df, season)
   champions <- final_standings$team[1]
   return(champions)
 }
@@ -229,10 +287,7 @@ get_title_odds <- function(df, season, date, n) {
   # Get current standings as of the input date
   initial_standings <- get_standings(df, season, date)
   
-  # Set up parallel processing and progress bar
-  available_cores <- parallel::detectCores(logical = TRUE)
-  safe_cores <- max(1, available_cores - 1)
-  plan(multisession, workers = safe_cores)
+  # Progress bar
   handlers(global = TRUE)
   handlers("txtprogressbar")
   
@@ -261,6 +316,11 @@ get_title_odds <- function(df, season, date, n) {
   standings_with_odds <- initial_standings %>%
     mutate(title_odds = round(title_odds[team], 4))
   
+  # Add actual champion column
+  actual_champion <- get_champions(df, season)
+  standings_with_odds <- standings_with_odds %>%
+    mutate(actual_champion = as.integer(team == actual_champion))
+  
   # Save CSV
   date_string <- format(date, "%Y-%m-%d")
   filename <- paste0("title_odds_", season, "_", date_string, ".csv")
@@ -269,11 +329,93 @@ get_title_odds <- function(df, season, date, n) {
   
   cat("Saved title odds to:", output_path, "\n")
   
-  plan(sequential) # Reset parallel processing
-  
   return(standings_with_odds)
 }
 
+# ---- Summarize number of games left for each date ----
 
-title_odds_april <- get_title_odds(matches, "1974-1975", "1975-04-01", n = 10000)
+get_games_left_summary <- function(df) {
+  
+  # Create match_dates data frame with season + date pairs
+  match_dates <- df %>%
+    distinct(season, match_date) %>%
+    arrange(season, match_date)
+  
+  # Add pld_min and pld_max by computing standings for each (season, match_date)
+  match_dates <- match_dates %>%
+    rowwise() %>%
+    mutate(
+      pld_values = list(get_standings(matches, season, match_date)$pld),
+      pld_min = min(pld_values),
+      pld_max = max(pld_values)
+    ) %>%
+    ungroup() %>%
+    select(-pld_values)
+  
+  # For each season, compute the number of matches = (number of teams - 1) * 2
+  final_pld_per_season <- df %>%
+    group_by(season) %>%
+    summarise(
+      num_teams = n_distinct(home_team),
+      final_pld = (num_teams - 1) * 2,
+      .groups = "drop"
+    )
+  
+  # Join final pld into match_dates
+  match_dates <- match_dates %>%
+    left_join(final_pld_per_season, by = "season") %>%
+    mutate(
+      min_games_left = final_pld - pld_max,
+      max_games_left = final_pld - pld_min
+    )
+  
+  return(match_dates)
+}
 
+# ---- Sim all dates and skip where eventual champion has >99% prob ----
+
+sim_all_seasons <- function(df, games_left_df, n = 1000, start_date = '1900-01-01') {
+
+  start_date <- as.Date(start_date)
+  processed_seasons <- character()
+  
+  # Filter season end scenarios only
+  games_left_df <- games_left_df %>%
+    filter(min_games_left <= 5 & match_date >= start_date) %>%
+    arrange(season, match_date)
+  
+  total_rows <- nrow(games_left_df)
+  cat("Running simulations for", total_rows, "dates...\n\n")
+  
+  for (i in seq_len(total_rows)) {
+    row <- games_left_df[i, , drop = FALSE]
+    season <- row$season
+    date <- row$match_date
+    
+    # Skip season if already resolved
+    if (season %in% processed_seasons) next
+    
+    cat("[", i, "/", total_rows, "] Simulating", season, "on", date, "...\n")
+    
+    standings <- get_title_odds(df, season, date, n)
+    
+    # Check if any team has > 99% chance of winning
+    top_team <- standings %>%
+      filter(title_odds > 0.99) %>%
+      slice(1)
+    
+    if (nrow(top_team) == 1 && top_team$actual_champion == 1) {
+      cat("✅ Champion correctly predicted with >99% certainty. Skipping remaining for", season, "\n\n")
+      processed_seasons <- c(processed_seasons, season)
+    } 
+  }
+  
+  cat("✅ All simulations complete.\n")
+}
+
+
+
+games_left <- get_games_left_summary(matches)
+sim_all_seasons(matches, games_left, n = 10000, start_date = '1900-01-01')
+
+plan(sequential) # Reset parallel processing
