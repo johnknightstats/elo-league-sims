@@ -159,6 +159,7 @@ get_odds <- function(fav_net_diff, g, h, i) {
 
 # Define loss function
 
+
 loss_function <- function(params, data) {
   g <- params[1]
   h <- params[2]

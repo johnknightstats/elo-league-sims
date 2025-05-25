@@ -8,7 +8,7 @@ library(lubridate)
 library(here)
 
 # ---- Look for existing Elo files in data folder ----
-data_dir <- here("data")
+data_dir <- here("data/elo")
 if (!dir.exists(data_dir)) dir.create(data_dir)
 existing_files <- list.files(data_dir, pattern = "^eloratings_\\d{4}-\\d{2}-\\d{2}\\.csv$", full.names = FALSE)
 
