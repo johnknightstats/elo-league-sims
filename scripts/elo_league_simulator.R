@@ -282,6 +282,8 @@ simulate_season <- function(df, season, my_date) {
 
 get_title_odds <- function(df, season, date, n) {
 
+  start_time <- Sys.time()
+  
   date <- as.Date(date)
   
   # Get current standings as of the input date
@@ -326,6 +328,10 @@ get_title_odds <- function(df, season, date, n) {
   filename <- paste0("title_odds_", season, "_", date_string, ".csv")
   output_path <- here("data/odds", filename)
   write_csv(standings_with_odds, output_path)
+  
+  end_time <- Sys.time()
+  elapsed <- round(difftime(end_time, start_time, units = "secs"), 2)
+  cat("Time elapsed:", elapsed, "seconds\n")
   
   cat("Saved title odds to:", output_path, "\n")
   
