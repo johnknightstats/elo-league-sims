@@ -374,14 +374,14 @@ get_games_left_summary <- function(df) {
 
 # ---- Sim all dates and skip where eventual champion has >99% prob ----
 
-sim_all_seasons <- function(df, games_left_df, n = 1000, start_date = '1900-01-01') {
+sim_all_seasons <- function(df, games_left_df, n = 10000, start_date = '1900-01-01') {
 
   start_date <- as.Date(start_date)
   processed_seasons <- character()
   
   # Filter season end scenarios only
   games_left_df <- games_left_df %>%
-    filter(min_games_left <= 5 & match_date >= start_date) %>%
+    filter(min_games_left <= 5 & match_date >= start_date & max_games_left > 0) %>%
     arrange(season, match_date)
   
   total_rows <- nrow(games_left_df)
@@ -416,6 +416,6 @@ sim_all_seasons <- function(df, games_left_df, n = 1000, start_date = '1900-01-0
 
 
 games_left <- get_games_left_summary(matches)
-sim_all_seasons(matches, games_left, n = 10000, start_date = '1900-01-01')
+sim_all_seasons(matches, games_left, n = 10000, start_date = '1950-05-06')
 
 plan(sequential) # Reset parallel processing
