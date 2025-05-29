@@ -422,6 +422,6 @@ sim_all_seasons <- function(df, games_left_df, n = 10000, start_date = '1900-01-
 
 
 games_left <- get_games_left_summary(matches)
-sim_all_seasons(matches, games_left, n = 10000, start_date = '1950-05-06')
+sim_all_seasons(matches, games_left, n = 10000, start_date = '2010-04-05')
 
 plan(sequential) # Reset parallel processing
