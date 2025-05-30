@@ -62,22 +62,54 @@ mu_12_odds <- ggplot(mu_12, aes(x = date, y = title_odds, color = team, group = 
   scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
   scale_x_date(date_breaks = "3 days", date_labels = "%b %d") +
   scale_color_manual(values = c("Manchester United" = "red", "Manchester City" = "skyblue")) +
-  labs(x = NULL, y = "Title Odds", color = NULL) +
-  theme_minimal()
+  labs(x = NULL, y = "Title Odds", color = NULL)
 
 mu_12_odds
 
-bu_12 <- subset(all_odds, team %in% c("Burnley", "Wolverhampton Wanderers",
-                                      "Tottenham Hotspur")
+bu_12 <- subset(all_odds, team %in% c("Burnley", "Ipswich Town")
                 & season == "1961-1962")
 
 bu_12_odds <- ggplot(bu_12, aes(x = date, y = title_odds, color = team, group = team)) +
   geom_line(size=1.2) +
   scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
   scale_x_date(date_breaks = "3 days", date_labels = "%b %d") +
-  scale_color_manual(values = c("Burnley" = "maroon","Wolverhampton Wanderers" = "goldenrod1",
-                     "Tottenham Hotspur" = "white")) +
-  labs(x = NULL, y = "Title Odds", color = NULL) +
-  theme_minimal()
+  scale_color_manual(values = c("Burnley" = "maroon","Ipswich Town" = "blue3")) +
+  labs(x = NULL, y = "Title Odds", color = NULL)
 
 bu_12_odds
+
+li_89 <- subset(all_odds, team %in% c("Liverpool", "Arsenal")
+                & season == "1988-1989")
+
+li_89_odds <- ggplot(li_89, aes(x = date, y = title_odds, color = team, group = team)) +
+  geom_line(size=1.2) +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
+  scale_x_date(date_breaks = "3 days", date_labels = "%b %d") +
+  scale_color_manual(values = c("Liverpool" = "red", "Arsenal" = "yellow")) +
+  labs(x = NULL, y = "Title Odds", color = NULL)
+
+li_89_odds
+
+mu_92 <- subset(all_odds, team %in% c("Manchester United", "Leeds United")
+                & season == "1991-1992")
+
+mu_92_odds <- ggplot(mu_92, aes(x = date, y = title_odds, color = team, group = team)) +
+  geom_line(size=1.2) +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
+  scale_x_date(date_breaks = "3 days", date_labels = "%b %d") +
+  scale_color_manual(values = c("Manchester United" = "red", "Leeds United" = "white")) +
+  labs(x = NULL, y = "Title Odds", color = NULL)
+
+mu_92_odds
+
+li_14 <- subset(all_odds, team %in% c("Liverpool", "Manchester City")
+                & season == "2013-2014")
+
+li_14_odds <- ggplot(li_14, aes(x = date, y = title_odds, color = team, group = team)) +
+  geom_line(size=1.2) +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
+  scale_x_date(date_breaks = "3 days", date_labels = "%b %d") +
+  scale_color_manual(values = c("Liverpool" = "red", "Manchester City" = "skyblue")) +
+  labs(x = NULL, y = "Title Odds", color = NULL)
+
+li_14_odds
