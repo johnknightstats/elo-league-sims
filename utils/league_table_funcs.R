@@ -347,10 +347,13 @@ print_results_formatted <- function(results_df, teams, my_season, start_date) {
       columns = match_date,
       date_style = "month_day_year"
     ) %>%
+    tab_style(
+      style = cell_text(align = "right"),
+      locations = cells_body(columns = home_team)
+    ) %>%
     tab_options(
       table.background.color = "white",
-      column_labels.background.color = "lightgrey", 
-      heading.align = "center",
-      column_labels.font.weight = "bold",
+      column_labels.hidden = TRUE, 
+      heading.align = "center"
     )
 }
