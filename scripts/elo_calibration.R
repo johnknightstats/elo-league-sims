@@ -75,7 +75,7 @@ deciles <- matches %>%
     upper = avg_result + 1.96 * se
   )
 
-ggplot(deciles, aes(x = avg_prediction, y = avg_result)) +
+elo_deciles <- ggplot(deciles, aes(x = avg_prediction, y = avg_result)) +
   geom_point(size = 3, color = "dodgerblue3") +
   geom_line(color = "dodgerblue3") +
   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.01, color = "goldenrod2") +
@@ -86,6 +86,9 @@ ggplot(deciles, aes(x = avg_prediction, y = avg_result)) +
     y = "Mean Actual Result"
   ) +
   theme(plot.title = element_text(hjust = 0.5))
+
+elo_deciles
+ggsave(filename = here("docs/viz","elo_deciles.png"), elo_deciles, height=4, width=8, dpi=600)
 
 # ---- Inspect goal distribution vs. Elo difference ----
 
@@ -133,15 +136,19 @@ goal_counts <- goal_counts %>%
 goal_plot_data <- goal_counts %>%
   pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
 
-ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+poisson_v_obs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
   scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
   labs(
-    title = "Observed vs Poisson Distribution of Goals Scored",
+    title = "Poisson Distribution versus Observed Goals Scored",
     x = "Goals Scored",
-    y = "Relative Frequency"
+    y = "Relative Frequency",
+    fill = NULL
   ) +
   theme(plot.title = element_text(hjust = 0.5))
+
+poisson_v_obs
+ggsave(filename = here("docs/viz","poisson_v_obs.png"), poisson_v_obs, height=4, width=8, dpi=600)
 
 # ---- Compare observed vs Poisson, conditional on opponent goals ----
 
@@ -167,16 +174,22 @@ plot_conditional <- function(df, opp_goals) {
     scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
     labs(
       title = paste("Goals Scored | Opponent Scored", opp_goals),
-      x = "Goals Scored",
-      y = "Relative Frequency",
-      fill = element_blank()
+      x = NULL,
+      y = NULL,
+      fill = NULL
     ) +
-    theme(plot.title = element_text(hjust = 0.5),
-          legend.key.size=unit(0.2, 'cm'))
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 10),
+      legend.position = "none"
+    )
 }
 
-plot_conditional(matches_long, 0) + plot_conditional(matches_long, 1) + 
+cond_plots <- plot_conditional(matches_long, 0) + plot_conditional(matches_long, 1) + 
   plot_conditional(matches_long, 2) + plot_conditional(matches_long, 3)
+
+cond_plots
+ggsave(filename = here("docs/viz","cond_plots.png"), cond_plots, height=4, width=8, dpi=600)
+
 
 # We see:
 
@@ -222,7 +235,40 @@ goal_counts <- goal_counts %>%
 goal_plot_data <- goal_counts %>%
   pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
 
-ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+
+plot_conditional_udog <- function(df, opp_goals) {
+  subset_df <- df %>% filter(goals_against == opp_goals)
+  lambda <- mean(subset_df$goals_for)
+  total_n <- nrow(subset_df)
+  
+  observed <- subset_df %>%
+    count(goals_for) %>%
+    rename(observed = n)
+  
+  observed <- observed %>%
+    mutate(
+      poisson_prob = dpois(goals_for, lambda),
+      poisson = poisson_prob,
+      observed = observed / total_n  # convert to relative frequency
+    ) %>%
+    pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
+  
+  ggplot(observed, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+    geom_col(position = position_dodge(width=0.6), width=0.5) +
+    scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
+    labs(
+      title = paste("Goals Scored | Favourite Scored", opp_goals),
+      x = NULL,
+      y = NULL,
+      fill = NULL
+    ) +
+    theme(
+      plot.title = element_text(hjust = 0.5, size = 10),
+      legend.position = "none"
+    )
+}
+
+cond_udogs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
   scale_fill_manual(values = c("observed" = "dodgerblue3", "poisson" = "goldenrod2")) +
   labs(
@@ -236,8 +282,11 @@ ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type))
 
 underdogs <- subset(matches_long, net_elo < 0)
 
-plot_conditional(underdogs, 0) + plot_conditional(underdogs, 1) + 
-  plot_conditional(underdogs, 2) + plot_conditional(underdogs, 3)
+cond_udogs <- plot_conditional_udog(underdogs, 0) + plot_conditional_udog(underdogs, 1) + 
+  plot_conditional_udog(underdogs, 2) + plot_conditional_udog(underdogs, 3)
+
+cond_udogs
+ggsave(filename = here("docs/viz","cond_udogs.png"), cond_plots, height=4, width=8, dpi=600)
 
 
 # ---- Observed goals vs. Poisson for close favs only ----
@@ -273,3 +322,5 @@ ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type))
     y = "Relative Frequency"
   ) +
   theme(plot.title = element_text(hjust = 0.5))
+
+

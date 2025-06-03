@@ -262,7 +262,7 @@ deciles <- matches_model %>%
     n = n()
   )
 
-ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
+deciles_new <- ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
   geom_point(color = "dodgerblue3", size = 3) +
   geom_errorbar(aes(ymin = actual_win_rate - 1.96 * sqrt(actual_win_rate*(1-actual_win_rate)/n),
                     ymax = actual_win_rate + 1.96 * sqrt(actual_win_rate*(1-actual_win_rate)/n)),
@@ -274,6 +274,9 @@ ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
     y = "Actual Win Rate"
   ) +
   theme(plot.title = element_text(hjust = 0.5))
+
+deciles_new
+ggsave(filename = here("docs/viz","deciles_new.png"), deciles_new, height=4, width=8, dpi=600)
 
 
 # ---- Compare predicted W-D-L versus actual results ----
@@ -294,7 +297,7 @@ plot_data <- matches_model %>%
     values_to = "value"
   )
 
-ggplot(plot_data, aes(x = outcome, y = value, fill = type)) +
+wdl <- ggplot(plot_data, aes(x = outcome, y = value, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
   scale_fill_manual(values = c("actual" = "dodgerblue3", "pred" = "goldenrod2")) +
   labs(
@@ -304,6 +307,8 @@ ggplot(plot_data, aes(x = outcome, y = value, fill = type)) +
   ) +
   theme(plot.title = element_text(hjust = 0.5))
 
+wdl
+ggsave(filename = here("docs/viz","wdl.png"), deciles_new, height=4, width=8, dpi=600)
 
 # ---- Compare predicted scorelines with actual scorelines ----
 
@@ -332,7 +337,7 @@ actual_long <- matches_model %>%
 
 plot_data <- bind_rows(pred_long, actual_long)
 
-ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) +
+model_v_scores <- ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width = 0.5) +
   scale_fill_manual(values = c("actual" = "dodgerblue3", "pred" = "goldenrod2")) +
   labs(
@@ -345,4 +350,5 @@ ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) +
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
-
+model_v_scores
+ggsave(filename = here("docs/viz","model_v_scores.png"), model_v_scores, height=4, width=8, dpi=600)

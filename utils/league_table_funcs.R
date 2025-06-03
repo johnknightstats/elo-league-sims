@@ -187,17 +187,17 @@ get_top_n_formatted <- function(odds_df, season, date, n = 8) {
   year <- as.numeric(substr(season, 1, 4))
   tiebreaker <- if (year >= 1981) "GD" else "GA"
   
-  cols_to_use <- c("team", "pld", "won", "drawn", "lost", "goals_for",
+  cols_to_use <- c("rank", "team", "pld", "won", "drawn", "lost", "goals_for",
                    "goals_against", tiebreaker, "pts", "latest_elo", "title_odds")
   
   topn <- standings[1:min(n, nrow(standings)), ..cols_to_use]
 
-  names(topn) <- c("Team", "Pld", "W", "D", "L", "F", "A", tiebreaker, "Pts", "Elo", "Win %")
+  names(topn) <- c("#", "Team", "Pld", "W", "D", "L", "F", "A", tiebreaker, "Pts", "Elo", "Win %")
   
   topn$Elo <- round(topn$Elo)
   topn$`Win %` <- round(topn$`Win %` * 100, 1)
   
-  formatted_date <- format(date, "%B %e, %Y")  # e.g., "May 5, 1992"
+  formatted_date <- format(date, "%d %b, %Y") 
   
   # Use all Elo vals with buffer for color scale
   elo_vals <- standings$latest_elo
@@ -211,7 +211,7 @@ get_top_n_formatted <- function(odds_df, season, date, n = 8) {
       title = md(glue::glue("**League Table after matches on {formatted_date}**"))
     ) %>%
     cols_label(
-      Team = "Team", Pld = "Pld", W = "W", D = "D", L = "L",
+      `#` = "#", Team = "Team", Pld = "Pld", W = "W", D = "D", L = "L",
       F = "F", A = "A", !!tiebreaker := tiebreaker, Pts = "Pts", Elo = "Elo"
     ) %>%
     
@@ -271,12 +271,12 @@ final_table_formatted <- function(results_df, season, n=6) {
     year <- as.numeric(substr(season, 1, 4))
   tiebreaker <- if (year >= 1981) "GD" else "GA"
   
-  cols_to_use <- c("team", "pld", "won", "drawn", "lost", "goals_for",
+  cols_to_use <- c("rank", "team", "pld", "won", "drawn", "lost", "goals_for",
                    "goals_against", tiebreaker, "pts")
   
   topn <- standings[1:min(n, nrow(standings)), cols_to_use]
   
-  names(topn) <- c("Team", "Pld", "W", "D", "L", "F", "A", tiebreaker, "Pts")
+  names(topn) <- c("#", "Team", "Pld", "W", "D", "L", "F", "A", tiebreaker, "Pts")
   
   formatted_table <- topn %>%
     gt() %>%
@@ -284,7 +284,7 @@ final_table_formatted <- function(results_df, season, n=6) {
       title = md(glue::glue("**Final Table {season}**"))
     ) %>%
     cols_label(
-      Team = "Team", Pld = "Pld", W = "W", D = "D", L = "L",
+      `#` = "#", Team = "Team", Pld = "Pld", W = "W", D = "D", L = "L",
       F = "F", A = "A", !!tiebreaker := tiebreaker, Pts = "Pts"
     ) %>%
     
@@ -345,11 +345,15 @@ print_results_formatted <- function(results_df, teams, my_season, start_date) {
     ) %>%
     fmt_date(
       columns = match_date,
-      date_style = "month_day_year"
+      date_style = "day_month_year"
     ) %>%
     tab_style(
       style = cell_text(align = "right"),
       locations = cells_body(columns = home_team)
+    ) %>%
+    tab_style(
+      style = cell_borders(sides = "right", color = "white", weight = px(10)),
+      locations = cells_body(columns = match_date)
     ) %>%
     tab_options(
       table.background.color = "white",
