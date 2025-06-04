@@ -111,7 +111,7 @@ mu_12_odds <- ggplot(mu_12, aes(x = date, y = title_odds, color = team, group = 
   scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
   scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
   scale_color_manual(values = c("Manchester United" = "red", "Manchester City" = "skyblue")) +
-  labs(title = "Time Series of Title Race 2011-2012", x = NULL, y = "Title Probability", 
+  labs(title = NULL, x = NULL, y = "Win Probability", 
        color = NULL) +
   geom_point(data = filter(mu_12, !is.na(annotation)),
              aes(x = date, y = title_odds), color = "black", size = 2) +
@@ -120,7 +120,7 @@ mu_12_odds <- ggplot(mu_12, aes(x = date, y = title_odds, color = team, group = 
             size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
             nudge_x = mu_12_labels$nudge_x,
             nudge_y = mu_12_labels$nudge_y) +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         axis.text.x = element_text(size = 10),
         axis.text.y = element_text(size = 10),
         plot.title = element_text(size = 12, hjust = 0.5))
@@ -185,14 +185,14 @@ bu_62_odds <- ggplot(bu_62, aes(x = date, y = title_odds, color = team, group = 
   scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
   scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
   scale_color_manual(values = c("Burnley" = "maroon","Ipswich Town" = "blue3")) +
-  labs(title = "Time Series of Title Race 1961-1962", x = NULL, y = "Title Probability", 
+  labs(title = NULL, x = NULL, y = "Win Probability", 
        color = NULL) +
   geom_point(data = filter(bu_62, !is.na(annotation)),
              aes(x = date, y = title_odds), color = "black", size = 2) +
   geom_label_repel(data = filter(bu_62, !is.na(annotation)), 
                    aes(x = date, y = title_odds, label = annotation),
                    size = 3.5, color = "black", box.padding = 0.5, force = 15) +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         axis.text.x = element_text(size = 10),
         axis.text.y = element_text(size = 10),
         plot.title = element_text(size = 12, hjust = 0.5))
@@ -265,7 +265,7 @@ li_89_odds <- ggplot(li_89, aes(x = date, y = title_odds, color = team, group = 
   scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
   scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
   scale_color_manual(values = c("Liverpool" = "red", "Arsenal" = "yellow")) +
-  labs(title = "Time Series of Title Race 1988-1989", x = NULL, y = "Title Probability", 
+  labs(title = NULL, x = NULL, y = "Win Probability", 
        color = NULL) +
   geom_point(data = filter(li_89, !is.na(annotation)),
              aes(x = date, y = title_odds), color = "black", size = 2) +
@@ -274,7 +274,7 @@ li_89_odds <- ggplot(li_89, aes(x = date, y = title_odds, color = team, group = 
                    size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
                    nudge_x = li_89_labels$nudge_x,
                    nudge_y = li_89_labels$nudge_y) +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         axis.text.x = element_text(size = 10),
         axis.text.y = element_text(size = 10),
         plot.title = element_text(size = 12, hjust = 0.5))
@@ -289,6 +289,8 @@ html_code <- as_raw_html(formatted_table)
 filename <- paste0("li_89_table_", mydate, ".html")
 writeLines(html_code, here("docs/viz",filename))
 formatted_table
+filename <- paste0("li_89_table_", mydate, ".png")
+gtsave(formatted_table, here("docs/viz",filename))
 
 mydate <- "1989-05-23"
 formatted_table <- get_top_n_formatted(all_odds, "1988-1989", mydate, n = 6)
@@ -342,14 +344,14 @@ mu_92_odds <- ggplot(mu_92, aes(x = date, y = title_odds, color = team, group = 
   scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
   scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
   scale_color_manual(values = c("Manchester United" = "red", "Leeds United" = "white")) +
-  labs(title = "Time Series of Title Race 1991-1992", x = NULL, y = "Title Probability", 
+  labs(title = NULL, x = NULL, y = "Win Probability", 
        color = NULL) +
   geom_point(data = filter(mu_92, !is.na(annotation)),
              aes(x = date, y = title_odds), color = "black", size = 2) +
   geom_label_repel(data = filter(mu_92, !is.na(annotation)), 
                    aes(x = date, y = title_odds, label = annotation),
                    size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15) +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         axis.text.x = element_text(size = 10),
         axis.text.y = element_text(size = 10),
         plot.title = element_text(size = 12, hjust = 0.5))
@@ -420,7 +422,7 @@ li_14_odds <- ggplot(li_14, aes(x = date, y = title_odds, color = team, group = 
   scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
   scale_color_manual(values = c("Liverpool" = "red", "Manchester City" = "skyblue",
                                 "Chelsea" = "blue")) +
-  labs(title = "Time Series of Title Race 2013-2014", x = NULL, y = "Probability",
+  labs(title = NULL, x = NULL, y = "Win Probability",
        color = NULL) +
   geom_point(data = filter(li_14, !is.na(annotation)),
              aes(x = date, y = title_odds), color = "black", size = 2) +
@@ -429,7 +431,7 @@ li_14_odds <- ggplot(li_14, aes(x = date, y = title_odds, color = team, group = 
                    size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
                    nudge_x = li_14_labels$nudge_x,
                    nudge_y = li_14_labels$nudge_y) +
-  theme(legend.position = "bottom",
+  theme(legend.position = "none",
         axis.text.x = element_text(size = 10),
         axis.text.y = element_text(size = 10),
         plot.title = element_text(size = 12, hjust = 0.5))
