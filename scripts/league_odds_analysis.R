@@ -156,6 +156,14 @@ end_results
 filename <- paste0("end_results_", myseason, ".png")
 gtsave(end_results, here("docs/viz",filename))
 
+mu_12_results <- single_team_results_formatted(all_results, "Manchester United", "2011-2012", "2012-04-10")
+html_code <- as_raw_html(mu_12_results)
+filename <- paste0("mu_12_results_", myseason, ".html")
+writeLines(html_code, here("docs/viz",filename))
+mu_12_results
+filename <- paste0("mu_12_results_", myseason, ".png")
+gtsave(mu_12_results, here("docs/viz",filename))
+
 # ---- Plot Burnley 1961-1962 Odds Time Series ----
 
 bu_62 <- subset(all_odds, team %in% c("Burnley", "Ipswich Town")
@@ -226,6 +234,14 @@ writeLines(html_code, here("docs/viz",filename))
 end_results
 filename <- paste0("end_results_", myseason, ".png")
 gtsave(end_results, here("docs/viz",filename))
+
+bu_62_results <- single_team_results_formatted(all_results, "Burnley", "1961-1962", "1962-04-09")
+html_code <- as_raw_html(bu_62_results)
+filename <- paste0("bu_62_results_", myseason, ".html")
+writeLines(html_code, here("docs/viz",filename))
+bu_62_results
+filename <- paste0("bu_62_results_", myseason, ".png")
+gtsave(bu_62_results, here("docs/viz",filename))
 
 # ---- Plot Liverpool 1988-1989 Odds Time Series ----
 
@@ -318,6 +334,14 @@ end_results
 filename <- paste0("end_results_", myseason, ".png")
 gtsave(end_results, here("docs/viz",filename))
 
+li_89_results <- single_team_results_formatted(all_results, "Liverpool", "1988-1989", "1989-05-01")
+html_code <- as_raw_html(li_89_results)
+filename <- paste0("li_89_results_", myseason, ".html")
+writeLines(html_code, here("docs/viz",filename))
+li_89_results
+filename <- paste0("li_89_results_", myseason, ".png")
+gtsave(li_89_results, here("docs/viz",filename))
+
 # ---- Plot Man Utd 1991-1992 Odds Time Series ----
 
 mu_92 <- subset(all_odds, team %in% c("Manchester United", "Leeds United")
@@ -384,6 +408,14 @@ writeLines(html_code, here("docs/viz",filename))
 end_results
 filename <- paste0("end_results_", myseason, ".png")
 gtsave(end_results, here("docs/viz",filename))
+
+mu_92_results <- single_team_results_formatted(all_results, "Manchester United", "1991-1992", "1992-04-04")
+html_code <- as_raw_html(mu_92_results)
+filename <- paste0("mu_92_results_", myseason, ".html")
+writeLines(html_code, here("docs/viz",filename))
+mu_92_results
+filename <- paste0("mu_92_results_", myseason, ".png")
+gtsave(mu_92_results, here("docs/viz",filename))
 
 # ---- Plot Liverpool 2013-2014 Odds Time Series ----
 
@@ -466,3 +498,11 @@ writeLines(html_code, here("docs/viz",filename))
 end_results
 filename <- paste0("end_results_", myseason, ".png")
 gtsave(end_results, here("docs/viz",filename))
+
+li_14_results <- single_team_results_formatted(all_results, "Liverpool", "2013-2014", "2014-04-20")
+html_code <- as_raw_html(li_14_results)
+filename <- paste0("li_14_results_", myseason, ".html")
+writeLines(html_code, here("docs/viz",filename))
+li_14_results
+filename <- paste0("li_14_results_", myseason, ".png")
+gtsave(li_14_results, here("docs/viz",filename))

@@ -392,3 +392,65 @@ print_results_formatted <- function(results_df, teams, my_season, start_date) {
       heading.align = "center"
     )
 }
+
+single_team_results_formatted <- function(results_df, team, my_season, start_date) {
+  
+  start_date <- as.Date(start_date)
+  
+  results_df %>%
+    mutate(match_date = as.Date(match_date)) %>%
+    filter(season == my_season,
+           match_date >= start_date,
+           home_team == team | away_team == team) %>%
+    mutate(
+      opponent = ifelse(home_team == team, away_team, home_team),
+      venue = ifelse(home_team == team, "(H)", "(A)"),
+      team_goals = ifelse(home_team == team, home_goals, away_goals),
+      opp_goals = ifelse(home_team == team, away_goals, home_goals),
+      result = case_when(
+        team_goals > opp_goals ~ "W",
+        team_goals == opp_goals ~ "D",
+        TRUE ~ "L"
+      ),
+      score = paste0(team_goals, " - ", opp_goals),
+      opponent_display = paste(opponent, venue)
+    ) %>%
+    select(match_date, opponent_display, result, score) %>%
+    arrange(match_date) %>%
+    gt() %>%
+    cols_label(
+      match_date = "Date",
+      opponent_display = "Opponent",
+      result = "Result",
+      score = "Score"
+    ) %>%
+    fmt_date(
+      columns = match_date,
+      date_style = "day_month_year"
+    ) %>%
+    tab_style(
+      style = cell_borders(sides = "right", color = "white", weight = px(10)),
+      locations = cells_body(columns = match_date)
+    ) %>%
+    tab_style(
+      style = cell_text(align = "center"),
+      locations = cells_body(columns = c(result, score))
+    ) %>%
+    tab_style(
+      style = cell_fill(color = "forestgreen"),
+      locations = cells_body(columns = result, rows = result == "W")
+    ) %>%
+    tab_style(
+      style = cell_fill(color = "firebrick"),
+      locations = cells_body(columns = result, rows = result == "L")
+    ) %>%
+    tab_style(
+      style = cell_fill(color = "grey60"),
+      locations = cells_body(columns = result, rows = result == "D")
+    ) %>%
+    tab_options(
+      table.background.color = "white",
+      column_labels.hidden = TRUE,
+      heading.align = "center"
+    )
+}
