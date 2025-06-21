@@ -39,8 +39,8 @@ print(na_df)
 h_mean <- mean(matches$home_goals)
 a_mean <- mean(matches$away_goals)
 cat("Mean goals:\n\n")
-cat("\nHome:", round(h_mean, 2))
-cat("\nAway:", round(a_mean, 2))
+cat("\nHome:", round(h_mean, 2), "\n")
+cat("\nAway:", round(a_mean, 2), "\n")
 
 # Home v away distribution
 matches_long <- matches %>% 
