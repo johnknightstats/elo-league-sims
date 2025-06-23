@@ -3,39 +3,38 @@
 ### Elo Scores Model ###
 ########################
 
-# Use a bivariate nested conditional Poisson model to generate home
+# Use a bivariate nested conditional Negative Binomial model to generate home
 # and away goals based on difference in Elo ratings.
 
-# From observation, it seems that favorites' goals when generated independently
-# have a greater chance of 0 and maybe also a slightly greater chance of 1 than 
-# a Poisson distribution.
+# From data inspection (see elo_calibration.R), it seems that favorites' goals 
+# when generated independently follow a negative binomial distribution with
+# dispersion parameter ~ 35.
 
-# It also seems that underdogs are slightly more likely to achieve the same score
-# as the favorite, conditional on the favorite's score, and slightly less likely
-# to score one goal more than the favorite.
+# However, underdog scores when viewed conditional on the favourite's score
+# exhibit a higher dispersion with inflation of the 'draw' scores.
 
 # Therefore, I will employ the following algorithm to calculate the probability
 # distribution for the home and away score for each game:
 
-# 1. Calculate the expected goals for both teams from net elo diff
-# using degree 2 polynomials.
+# 1. Calculate the expected goals for the favourite from net elo diff using
+# a simple quadratic model from Net Elo Diff (Elo Diff plus Home Advantage).
 
-# 2. Get Poisson distribution for fav from expected goals.
+# 2. Get distribution for fav from expected goals using NB distribution.
 
-# 3. Give fav=0 and fav=1 a boost based on some parameters.
+# 3. Calculate expected goals for the underdog using a model that accounts for
+# fav goals as well as Net Elo Diff.
 
-# 4. Proportionally readjust all fav probs so that they sum to 1.
+# 4. Get distribution for the underdog using NB with an additional adjustment
+# for the 'draw' scoreline and a counteradjustment to ensure expected goals remains the same.
 
-# 5. Get Poisson distribution for underdog from expected goals.
-
-# 6. Get some proportion of the probability underdog scores fav + 1 goals,
-# and move it to equal with fav goals (i.e. draw).
 
 # ---- Import libraries ----
 
 library(tidyverse)
 library(here)
 library(rlang)
+library(viridis)
+viridis_colors <- viridis(n = 3, option="viridis")
 
 # ---- Load utility functions ----
 
@@ -90,138 +89,214 @@ matches_model <- matches %>%
 # to same score as fav. e.g. if d = 0.1, then if fav scored 1 and underdog has
 # 0.2 probability of scoring 2, this becomes 0.18 and the 0.02 gets added to p(1)
 
-# Fit polynomial expected goals models
-fit_fav <- lm(fav_goals ~ fav_net_diff + I(fav_net_diff^2), data = matches_model)
-fit_dog <- lm(dog_goals ~ fav_net_diff + I(fav_net_diff^2), data = matches_model)
+# Fit expected goals models
+fav_model <- lm(fav_goals ~ fav_net_diff + I(fav_net_diff^2), data = matches_model)
 
-a <- coef(fit_fav)["fav_net_diff"]
-b <- coef(fit_fav)["I(fav_net_diff^2)"]
-c <- coef(fit_fav)["(Intercept)"]
-
-d <- coef(fit_dog)["fav_net_diff"]
-e <- coef(fit_dog)["I(fav_net_diff^2)"]
-f <- coef(fit_dog)["(Intercept)"]
-
-
-get_odds <- function(fav_net_diff, g, h, i) {
-  
-  fav_exp_goals <- a * fav_net_diff + b * fav_net_diff^2 + c
-  dog_exp_goals <- d * fav_net_diff + e * fav_net_diff^2 + f
-  
-  # Inflation of 0 and 1
-  fav_probs <- dpois(0:9, fav_exp_goals)
-  fav_probs[10] <- fav_probs[10] + (1 - ppois(9, fav_exp_goals))  # 10+ goals
-  fav_probs[1] <- fav_probs[1] * (1 + g)
-  fav_probs[2] <- fav_probs[2] * (1 + h)
-  fav_probs <- fav_probs / sum(fav_probs)
-  
-  # Dog goal distribution
-  dog_probs <- dpois(0:9, dog_exp_goals)
-  dog_probs[10] <- dog_probs[10] + (1 - ppois(9, dog_exp_goals))  # 10+ goals
-  
-  joint_matrix <- outer(fav_probs, dog_probs)
-  
-  # Compute win probability for favorite (x > y)
-  f_win <- sum(joint_matrix[lower.tri(joint_matrix)])
-  
-  # Apply shift from dog=x+1 to draw
-  for (x in 0:8) {
-    p <- joint_matrix[x+1, x+2]
-    p_adj <- p * i
-    joint_matrix[x+1, x+2] <- joint_matrix[x+1, x+2] - p_adj
-    joint_matrix[x+1, x+1] <- joint_matrix[x+1, x+1] + p_adj
-    if (x == 0) { # also take some from 2
-      q <- joint_matrix[x+1, x+3]
-      q_adj <- q * i * 0.33
-      joint_matrix[x+1, x+3] <- joint_matrix[x+1, x+3] - q_adj
-      joint_matrix[x+1, x+1] <- joint_matrix[x+1, x+1] + q_adj
-    }
-  }
-  
-  d_win <- sum(joint_matrix[upper.tri(joint_matrix)])
-  draw <- sum(diag(joint_matrix))
-  
-  # Expected goals
-  exp_fav_goals <- sum(0:9 * rowSums(joint_matrix))
-  exp_dog_goals <- sum(0:9 * colSums(joint_matrix))
-  
-  return(list(
-    fav_p = f_win,
-    dog_p = d_win,
-    draw_p = draw,
-    fav_xg = exp_fav_goals,
-    dog_xg = exp_dog_goals,
-    scores = joint_matrix
+matches_model <- matches_model %>%
+  mutate(fav_goals_cat = factor(
+    ifelse(fav_goals >= 3, "3+", as.character(fav_goals)),
+    levels = c("0", "1", "2", "3+")
   ))
-}
 
+dog_model <- lm(dog_goals ~ fav_goals_cat * (fav_net_diff + I(fav_net_diff^2)), data = matches_model)
 
+# Extract coefficients
+a <- coef(fav_model)["fav_net_diff"]
+b <- coef(fav_model)["I(fav_net_diff^2)"]
+c <- coef(fav_model)["(Intercept)"]
 
-# Define loss function
+d <- coef(dog_model)["fav_goals_cat1"]
+e <- coef(dog_model)["fav_goals_cat2"]
+f <- coef(dog_model)["fav_goals_cat3+"]
 
+g <- coef(dog_model)["fav_net_diff"]
+h <- coef(dog_model)["I(fav_net_diff^2)"]
+i <- coef(dog_model)["(Intercept)"]
 
-loss_function <- function(params, data) {
-  g <- params[1]
-  h <- params[2]
-  i <- params[3]
+j <- coef(dog_model)["fav_goals_cat1:fav_net_diff"]
+k <- coef(dog_model)["fav_goals_cat2:fav_net_diff"]
+l <- coef(dog_model)["fav_goals_cat3+:fav_net_diff"]
+
+m <- coef(dog_model)["fav_goals_cat1:I(fav_net_diff^2)"]
+n <- coef(dog_model)["fav_goals_cat2:I(fav_net_diff^2)"]
+o <- coef(dog_model)["fav_goals_cat3+:I(fav_net_diff^2)"]
+
+# Function to calculate expected goals for favorite and dog
+get_expected_goals <- function(fav_net_diff, fav_goals) {
+  fav_xg <- a * fav_net_diff + b * fav_net_diff^2 + c
   
-  if (any(c(g, h, i) < 0) || g > 1 || h > 1 || i > 1) return(Inf)
-  
-  losses <- mapply(function(net_diff, y_fav, y_dog) {
-    probs <- get_odds(net_diff, g, h, i)
-    
-    eps <- 1e-15
-    score_prob <- probs$scores[y_fav + 1, y_dog + 1]  # actual score
-    -log(max(score_prob, eps))
-  },
-  data$fav_net_diff,
-  data$fav_goals,
-  data$dog_goals
+  cat_label <- factor(
+    ifelse(fav_goals >= 3, "3+", as.character(fav_goals)),
+    levels = c("0", "1", "2", "3+")
   )
   
+  # Base category effect (intercept shift)
+  cat_effect <- case_when(
+    cat_label == "0" ~ 0,
+    cat_label == "1" ~ d,
+    cat_label == "2" ~ e,
+    cat_label == "3+" ~ f
+  )
+  
+  # Linear interaction
+  lin_int <- case_when(
+    cat_label == "0" ~ 0,
+    cat_label == "1" ~ j * fav_net_diff,
+    cat_label == "2" ~ k * fav_net_diff,
+    cat_label == "3+" ~ l * fav_net_diff
+  )
+  
+  # Quadratic interaction
+  quad_int <- case_when(
+    cat_label == "0" ~ 0,
+    cat_label == "1" ~ m * fav_net_diff^2,
+    cat_label == "2" ~ n * fav_net_diff^2,
+    cat_label == "3+" ~ o * fav_net_diff^2
+  )
+  
+  dog_xg <- i + g * fav_net_diff + h * fav_net_diff^2 + cat_effect + lin_int + quad_int
+  
+  return(list(fav = fav_xg, dog = dog_xg))
+}
+
+           
+
+# Define loss function robust to errors
+loss_function <- function(params, data) {
+  alpha_0 <- params[1]
+  alpha_1 <- params[2]
+  alpha_2 <- params[3]
+  alpha_3 <- params[4]
+  size_0 <- params[5]
+  size_1 <- params[6]
+  size_2 <- params[7]
+  size_3 <- params[8]
+  
+  alphas <- c(alpha_0, alpha_1, alpha_2, alpha_3)
+  sizes <- c(size_0, size_1, size_2, size_3)
+  
+  # Check parameter bounds and validity
+  if (any(!is.finite(alphas)) || any(!is.finite(sizes)) ||
+      any(alphas < 0) || any(alphas > 0.2) || any(sizes <= 0)) {
+    return(Inf)
+  }
+  
+  losses <- mapply(function(fav_net_diff, fav_goals, dog_goals) {
+    # Predict favorite expected goals
+    fav_xg <- a * fav_net_diff + b * fav_net_diff^2 + c
+    
+    # Predict underdog expected goals, conditional on fav_goals
+    goal_cat <- ifelse(fav_goals >= 3, "3+", as.character(fav_goals))
+    dog_xg <- switch(goal_cat,
+                     "0" = i + g * fav_net_diff + h * fav_net_diff^2,
+                     "1" = i + d + g * fav_net_diff + h * fav_net_diff^2,
+                     "2" = i + e + g * fav_net_diff + h * fav_net_diff^2,
+                     "3+" = i + f + g * fav_net_diff + h * fav_net_diff^2)
+    
+    # Interaction terms
+    dog_xg <- dog_xg + switch(goal_cat,
+                              "0" = j * fav_net_diff + m * fav_net_diff^2,
+                              "1" = k * fav_net_diff + n * fav_net_diff^2,
+                              "2" = l * fav_net_diff + o * fav_net_diff^2,
+                              "3+" = 0)
+    
+    # Select pointmass and dispersion parameter based on fav_goals
+    idx <- ifelse(fav_goals >= 3, 4, fav_goals + 1)
+    alpha <- alphas[idx]
+    size <- sizes[idx]
+    
+    # Compute underdog goal probabilities with pointmass at dog_goals == fav_goals
+    k <- fav_goals
+    denom <- (1 - alpha)
+    if (!is.finite(dog_xg) || denom <= 0) return(Inf)
+    
+    mu_0 <- (dog_xg - alpha * k) / denom
+    if (!is.finite(mu_0) || mu_0 <= 0) return(Inf)
+    
+    probs <- (1 - alpha) * dnbinom(0:9, size = size, mu = mu_0)
+    probs <- c(probs, max(0, 1 - sum(probs)))  # 10+ bucket
+    probs[k + 1] <- probs[k + 1] + alpha
+    probs[-(k + 1)] <- (1 - alpha) * probs[-(k + 1)]
+    
+    if (any(!is.finite(probs)) || any(probs < 0) || any(is.na(probs))) return(Inf)
+    
+    eps <- 1e-15
+    -log(max(probs[dog_goals + 1], eps))
+    
+  }, data$fav_net_diff, data$fav_goals, data$dog_goals)
+  
   loss <- mean(losses)
-  cat(sprintf("g=%.4f h=%.4f i=%.4f loss=%.6f\n", g, h, i, loss))
+  if (!is.finite(loss)) return(Inf)
+  cat(sprintf("loss = %.6f\n", loss))
   flush.console()
   return(loss)
 }
 
 
-# Starting values
-start_params <- c(g = 0.15, h = 0.05, i = 0.1)
+
+
+start_params <- c(rep(0.01, 4), rep(10, 4)) # alpha (for pointmass) and dispersion parameter
 
 fit <- optim(
   par = start_params,
   fn = loss_function,
   data = matches_model,
   method = "L-BFGS-B",
-  lower = c(0, 0, 0),
-  upper = c(1, 1, 1)
+  lower = c(rep(0, 4), rep(0.1, 4)),
+  upper = c(rep(0.15, 4), rep(100000, 4))
 )
 
-# Extract fitted values
-g_fit <- fit$par[1]
-h_fit <- fit$par[2]
-i_fit <- fit$par[3]
+fitted_alphas <- setNames(fit$par[1:4], c("0", "1", "2", "3+"))
+fitted_sizes <- setNames(fit$par[5:8], c("0", "1", "2", "3+"))
 
 
 # ---- Add fitted probabilities and scorelines to matches_model ----
 
+get_odds_matrix <- function(fav_net_diff, alphas, sizes, max_goals = 10) {
+  
+  fav_xg <- get_expected_goals(fav_net_diff, fav_goals = 0)$fav # fav_goals is irrelevant here but needs a value
+  
+  fav_probs <- dnbinom(0:(max_goals - 1), mu = fav_xg, size = 35)
+  fav_probs <- c(fav_probs, 1 - sum(fav_probs))  # 10+ lumped
+
+  joint_matrix <- matrix(0, nrow = max_goals + 1, ncol = max_goals + 1)
+  
+  # Loop over all possible fav_goals (k)
+  for (k in 0:max_goals) {
+    # Get expected goals for dog given this fav_goals
+    xg <- get_expected_goals(fav_net_diff, k)
+    dog_xg <- xg$dog
+    
+    # Determine adjustment category
+    k_cat <- ifelse(k >= 3, "3+", as.character(k))
+    alpha <- alphas[[k_cat]]
+    size <- sizes[[k_cat]]
+    
+    # Unadjusted dog_probs
+    dog_probs <- dnbinom(0:(max_goals - 1), mu = dog_xg, size = size)
+    dog_probs <- c(dog_probs, 1 - sum(dog_probs))
+    
+    # Apply pointmass adjustment at dog_goals == fav_goals (i.e., k)
+    dog_probs[k + 1] <- alpha + (1 - alpha) * dog_probs[k + 1]
+    dog_probs[-(k + 1)] <- (1 - alpha) * dog_probs[-(k + 1)]
+    
+    # Multiply row by fav_probs[k+1]
+    joint_matrix[k + 1, ] <- fav_probs[k + 1] * dog_probs
+  }
+  
+  return(joint_matrix)
+}
+
 matches_model <- matches_model %>%
   mutate(
-    fav_exp_goals = a * fav_net_diff + b * fav_net_diff^2 + c,
-    dog_exp_goals = d * fav_net_diff + e * fav_net_diff^2 + f
+    score_mat = map(fav_net_diff, ~ get_odds_matrix(.x, alphas = fitted_alphas, sizes = fitted_sizes)),
+    fav_p = map_dbl(score_mat, ~ sum(.x[lower.tri(.x)])),
+    draw_p = map_dbl(score_mat, ~ sum(diag(.x))),
+    dog_p = map_dbl(score_mat, ~ sum(.x[upper.tri(.x)])),
+    total_p = fav_p + draw_p + dog_p
   )
 
-scoreline_labels <- as.vector(outer(0:3, 0:3, paste, sep = "-"))
 
-matches_model <- matches_model %>%
-  mutate(
-    score_data = map(fav_net_diff, ~ get_odds(.x, g_fit, h_fit, i_fit)),
-    fav_p = map_dbl(score_data, "fav_p"),
-    dog_p = map_dbl(score_data, "dog_p"),
-    draw_p = map_dbl(score_data, "draw_p"),
-    score_mat = map(score_data, ~ .x$scores[1:4, 1:4])
-  )
 
 
 # Add scoreline probabilities 0-0 to 3-3
@@ -232,16 +307,18 @@ for (x in 0:3) {
   }
 }
 
-# Drop intermediate score_mat column
-matches_model <- matches_model %>% select(-score_mat, -score_data)
 
 # ---- Save parameters and function for later use ----
 
 elo_model <- list(
   a = a, b = b, c = c,
   d = d, e = e, f = f,
-  g = g_fit, h = h_fit, i = i_fit,
-  get_odds = get_odds
+  g = g, h = h, i = i,
+  j = j, k = k, l = l,
+  m = m, n = n, o = o,
+  alphas = fitted_alphas,
+  sizes = fitted_sizes,
+  get_odds_matrix = get_odds_matrix
 )
 
 saveRDS(elo_model, file = here("data", "elo_model.rds"))
@@ -263,10 +340,10 @@ deciles <- matches_model %>%
   )
 
 deciles_new <- ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
-  geom_point(color = "dodgerblue3", size = 3) +
+  geom_point(color = viridis_colors[1], size = 3) +
   geom_errorbar(aes(ymin = actual_win_rate - 1.96 * sqrt(actual_win_rate*(1-actual_win_rate)/n),
                     ymax = actual_win_rate + 1.96 * sqrt(actual_win_rate*(1-actual_win_rate)/n)),
-                width = 0.01, color = "gray60") +
+                width = 0.01, color = viridis_colors[2]) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   labs(
     title = "Calibration: Predicted vs Actual Win Rate",
@@ -276,7 +353,7 @@ deciles_new <- ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 deciles_new
-ggsave(filename = here("docs/viz","deciles_new.png"), deciles_new, height=4, width=8, dpi=600)
+ggsave(filename = here("docs/viz","deciles_new.png"), deciles_new, height=4, width=6, dpi=600)
 
 
 # ---- Compare predicted W-D-L versus actual results ----
@@ -299,16 +376,17 @@ plot_data <- matches_model %>%
 
 wdl <- ggplot(plot_data, aes(x = outcome, y = value, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
-  scale_fill_manual(values = c("actual" = "dodgerblue3", "pred" = "goldenrod2")) +
+  scale_fill_viridis_d() +
   labs(
-    title = "Predicted vs Actual Match Outcomes (Favorite Perspective)",
+    title = "Predicted vs Actual Match Outcomes (Favourite Perspective)",
     x = "Outcome",
     y = "Proportion"
   ) +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
 
 wdl
-ggsave(filename = here("docs/viz","wdl.png"), deciles_new, height=4, width=8, dpi=600)
+ggsave(filename = here("docs/viz","wdl.png"), deciles_new, height=4, width=6, dpi=600)
 
 # ---- Compare predicted scorelines with actual scorelines ----
 
@@ -331,7 +409,7 @@ actual_long <- matches_model %>%
     type = "actual"
   ) %>%
   filter(scoreline %in% scoreline_cols) %>%
-  select(scoreline, value, type)
+  dplyr::select(scoreline, value, type)
 
 
 
@@ -339,10 +417,10 @@ plot_data <- bind_rows(pred_long, actual_long)
 
 model_v_scores <- ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width = 0.5) +
-  scale_fill_manual(values = c("actual" = "dodgerblue3", "pred" = "goldenrod2")) +
+  scale_fill_viridis_d() +
   labs(
     title = "Predicted vs Actual Scorelines (0–0 to 3–3)",
-    x = "Scoreline (Fav Goals – Dog Goals)",
+    x = "Scoreline (Favourite First)",
     y = "Proportion"
   ) +
   theme(
@@ -351,4 +429,4 @@ model_v_scores <- ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) 
   )
 
 model_v_scores
-ggsave(filename = here("docs/viz","model_v_scores.png"), model_v_scores, height=4, width=8, dpi=600)
+ggsave(filename = here("docs/viz","model_v_scores.png"), model_v_scores, height=4, width=6, dpi=600)
