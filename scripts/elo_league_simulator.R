@@ -46,25 +46,33 @@ matches <- compute_elo_columns(matches)
 # ---- Load model and parameters ----
 
 elo_model <- readRDS(here("data", "elo_model.rds"))
+alphas <- elo_model$alphas
+sizes <- elo_model$sizes
 a <- elo_model$a
 b <- elo_model$b
 c <- elo_model$c
 d <- elo_model$d
 e <- elo_model$e
 f <- elo_model$f
-g_fit <- elo_model$g
-h_fit <- elo_model$h
-i_fit <- elo_model$i
-get_odds <- elo_model$get_odds
+g <- elo_model$g
+h <- elo_model$h
+i <- elo_model$i
+j <- elo_model$j
+k <- elo_model$k
+l <- elo_model$l
+m <- elo_model$m
+n <- elo_model$n
+o <- elo_model$o
+get_odds_matrix <- elo_model$get_odds_matrix
+get_expected_goals <- elo_model$get_expected_goals
 
 
-# ---- Function to get standings on date ----
-
+# ---- Function to simulate one iteration of a season from a given date ----
 
 simulate_season <- function(df, season, my_date) {
   
   my_date <- as.Date(my_date)
-
+  
   results <- df[df$season == season & df$match_date <= my_date,]
   fixtures <- df[df$season == season & df$match_date > my_date,]
   
@@ -72,47 +80,45 @@ simulate_season <- function(df, season, my_date) {
     cat("No fixtures remaining. Returning standings as of my_date.\n")
     return(get_standings(results, my_date))
   }
-
-  fixtures <- fixtures %>%
-    mutate(
-      home_net_diff = home_elo - away_elo + home_advantage,
-      fav_net_diff = abs(home_net_diff),
-      sim = pmap(
-        list(fav_net_diff, home_net_diff, home_team, away_team),
-        function(fav_diff, home_diff, home_team, away_team) {
-          score_probs <- get_odds(fav_diff, g_fit, h_fit, i_fit)$scores
-          score_probs_vec <- as.vector(score_probs)
-          
-          sampled_index <- sample(length(score_probs_vec), 1, prob = score_probs_vec)
-          n_scores <- nrow(score_probs)
-          
-          fav_goals <- (sampled_index - 1) %% n_scores
-          dog_goals <- (sampled_index - 1) %/% n_scores
-          
-          if (home_diff >= 0) {
-            c(home_goals = fav_goals, away_goals = dog_goals)
-          } else {
-            c(home_goals = dog_goals, away_goals = fav_goals)
-          }
-        }
-      )
-    ) %>%
-    mutate(
-      home_goals = map_dbl(sim, 1),
-      away_goals = map_dbl(sim, 2)
-    ) %>%
-    select(-sim, -home_net_diff, -fav_net_diff)
-
-  # Combine simulated fixtures and actual results
+  
+  # Preallocate home_goals and away_goals vectors
+  n <- nrow(fixtures)
+  home_goals <- integer(n)
+  away_goals <- integer(n)
+  
+  for (i in seq_len(n)) {
+    mat <- fixtures$score_matrix[[i]]
+    is_home_fav <- fixtures$is_home_fav[i]
+    
+    probs <- as.vector(mat)
+    sampled_index <- sample.int(length(probs), 1, prob = probs)
+    n_scores <- nrow(mat)
+    
+    fav_goals <- (sampled_index - 1) %% n_scores
+    dog_goals <- (sampled_index - 1) %/% n_scores
+    
+    if (is_home_fav) {
+      home_goals[i] <- fav_goals
+      away_goals[i] <- dog_goals
+    } else {
+      home_goals[i] <- dog_goals
+      away_goals[i] <- fav_goals
+    }
+  }
+  
+  fixtures$home_goals <- home_goals
+  fixtures$away_goals <- away_goals
+  
   all_matches <- bind_rows(results, fixtures)
-
+  
   final_date <- all_matches$match_date[nrow(all_matches)]
-  
   standings <- get_standings(all_matches, season, final_date)
-  champions <- standings[1,"team"]
+  champions <- standings[1, "team"]
   
-  return(list(standings=standings, champions=champions))
+  return(list(standings = standings, champions = champions))
 }
+
+
 
 # ---- Function to get title odds on a date by running many sims ----
 
@@ -256,8 +262,17 @@ sim_all_seasons <- function(df, games_left_df, n = 10000, start_date = '1900-01-
 }
 
 
-
 games_left <- get_games_left_summary(matches)
-sim_all_seasons(matches, games_left, n = 10000, start_date = '2010-04-05')
+
+# Add score matrices
+matches <- matches %>%
+  mutate(
+    home_net_diff = home_elo - away_elo + home_advantage,
+    fav_net_diff = abs(home_net_diff),
+    is_home_fav = home_net_diff >= 0,
+    score_matrix = map(fav_net_diff, ~ get_odds_matrix(.x, alphas, sizes, max_goals = 10))
+  )
+
+sim_all_seasons(matches, games_left, n = 10000, start_date = '2017-04-15')
 
 plan(sequential) # Reset parallel processing

@@ -33,8 +33,9 @@
 library(tidyverse)
 library(here)
 library(rlang)
-library(viridis)
-viridis_colors <- viridis(n = 3, option="viridis")
+
+# Set a custom color palette
+my_palette <- c("#233D4D", "#FF9F1C", "#41EAD4", "#FDFFFC", "#F71735")
 
 # ---- Load utility functions ----
 
@@ -252,6 +253,44 @@ fitted_sizes <- setNames(fit$par[5:8], c("0", "1", "2", "3+"))
 
 # ---- Add fitted probabilities and scorelines to matches_model ----
 
+# Function to calculate expected goals for favorite and dog
+get_expected_goals <- function(fav_net_diff, fav_goals) {
+  fav_xg <- a * fav_net_diff + b * fav_net_diff^2 + c
+  
+  cat_label <- factor(
+    ifelse(fav_goals >= 3, "3+", as.character(fav_goals)),
+    levels = c("0", "1", "2", "3+")
+  )
+  
+  # Base category effect (intercept shift)
+  cat_effect <- case_when(
+    cat_label == "0" ~ 0,
+    cat_label == "1" ~ d,
+    cat_label == "2" ~ e,
+    cat_label == "3+" ~ f
+  )
+  
+  # Linear interaction
+  lin_int <- case_when(
+    cat_label == "0" ~ 0,
+    cat_label == "1" ~ j * fav_net_diff,
+    cat_label == "2" ~ k * fav_net_diff,
+    cat_label == "3+" ~ l * fav_net_diff
+  )
+  
+  # Quadratic interaction
+  quad_int <- case_when(
+    cat_label == "0" ~ 0,
+    cat_label == "1" ~ m * fav_net_diff^2,
+    cat_label == "2" ~ n * fav_net_diff^2,
+    cat_label == "3+" ~ o * fav_net_diff^2
+  )
+  
+  dog_xg <- i + g * fav_net_diff + h * fav_net_diff^2 + cat_effect + lin_int + quad_int
+  
+  return(list(fav = fav_xg, dog = dog_xg))
+}
+
 get_odds_matrix <- function(fav_net_diff, alphas, sizes, max_goals = 10) {
   
   fav_xg <- get_expected_goals(fav_net_diff, fav_goals = 0)$fav # fav_goals is irrelevant here but needs a value
@@ -289,13 +328,12 @@ get_odds_matrix <- function(fav_net_diff, alphas, sizes, max_goals = 10) {
 
 matches_model <- matches_model %>%
   mutate(
-    score_mat = map(fav_net_diff, ~ get_odds_matrix(.x, alphas = fitted_alphas, sizes = fitted_sizes)),
+    score_mat = map(fav_net_diff, ~ get_odds_matrix(.x, alphas = fitted_alphas, sizes = fitted_sizes,
+                                                    max_goals = 10)),
     fav_p = map_dbl(score_mat, ~ sum(.x[lower.tri(.x)])),
     draw_p = map_dbl(score_mat, ~ sum(diag(.x))),
     dog_p = map_dbl(score_mat, ~ sum(.x[upper.tri(.x)])),
-    total_p = fav_p + draw_p + dog_p
-  )
-
+    total_p = fav_p + draw_p + dog_p)
 
 
 
@@ -318,7 +356,8 @@ elo_model <- list(
   m = m, n = n, o = o,
   alphas = fitted_alphas,
   sizes = fitted_sizes,
-  get_odds_matrix = get_odds_matrix
+  get_odds_matrix = get_odds_matrix,
+  get_expected_goals = get_expected_goals
 )
 
 saveRDS(elo_model, file = here("data", "elo_model.rds"))
@@ -340,10 +379,10 @@ deciles <- matches_model %>%
   )
 
 deciles_new <- ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
-  geom_point(color = viridis_colors[1], size = 3) +
+  geom_point(color = my_palette[1], size = 3) +
   geom_errorbar(aes(ymin = actual_win_rate - 1.96 * sqrt(actual_win_rate*(1-actual_win_rate)/n),
                     ymax = actual_win_rate + 1.96 * sqrt(actual_win_rate*(1-actual_win_rate)/n)),
-                width = 0.01, color = viridis_colors[2]) +
+                width = 0.01, color = my_palette[2]) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   labs(
     title = "Calibration: Predicted vs Actual Win Rate",
@@ -360,23 +399,23 @@ ggsave(filename = here("docs/viz","deciles_new.png"), deciles_new, height=4, wid
 
 plot_data <- matches_model %>%
   summarise(
-    actual_win = mean(fav_win),
-    actual_draw = mean(draw),
-    actual_loss = mean(dog_win),
-    pred_win = mean(fav_p),
-    pred_draw = mean(draw_p),
-    pred_loss = mean(dog_p)
+    Actual_Win = mean(fav_win),
+    Actual_Draw = mean(draw),
+    Actual_Loss = mean(dog_win),
+    Pred_Win = mean(fav_p),
+    Pred_Draw = mean(draw_p),
+    Pred_Loss = mean(dog_p)
   ) %>%
   pivot_longer(
     cols = everything(),
-    names_to = c("type", "outcome"),
+    names_to = c("Type", "Outcome"),
     names_sep = "_",
     values_to = "value"
   )
 
-wdl <- ggplot(plot_data, aes(x = outcome, y = value, fill = type)) +
+wdl <- ggplot(plot_data, aes(x = Outcome, y = value, fill = Type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
-  scale_fill_viridis_d() +
+  scale_fill_manual(values = my_palette) +
   labs(
     title = "Predicted vs Actual Match Outcomes (Favourite Perspective)",
     x = "Outcome",
@@ -417,7 +456,7 @@ plot_data <- bind_rows(pred_long, actual_long)
 
 model_v_scores <- ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width = 0.5) +
-  scale_fill_viridis_d() +
+  scale_fill_manual(values = my_palette) +
   labs(
     title = "Predicted vs Actual Scorelines (0–0 to 3–3)",
     x = "Scoreline (Favourite First)",

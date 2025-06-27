@@ -506,3 +506,125 @@ writeLines(html_code, here("docs/viz",filename))
 li_14_results
 filename <- paste0("li_14_results_", myseason, ".png")
 gtsave(li_14_results, here("docs/viz",filename))
+
+
+
+# ---- Plot as function ----
+
+generate_season_viz <- function(file_abbrev, myseason, teams_df, annotations_df,
+                                date_breaks, table_display_dates, team_show) {
+  # teams_df = team, title_bin, colours
+  # annotations_df = team, match_date, caption, nudge_x, nudge_y
+  
+  # get season end date
+  all_results$match_date <- as.Date(all_results$match_date)
+  end_date <- max(all_results$match_date[all_results$season == myseason], na.rm = TRUE)
+  
+  my_odds <- subset(all_odds, team %in% teams_df$team
+                  & season == myseason) %>%
+    select(team, title_odds, date)
+  
+  fill_missing_odds <- function(df) {
+    
+    df_filled <- df %>%
+      group_by(team) %>%
+      complete(date = seq(min(date), max(date), by = "day")) %>%
+      arrange(team, date) %>%
+      fill(title_odds, .direction = "down") %>% 
+      ungroup()
+    
+    return(df_filled)
+  }
+  
+  # Manually add final odds to make time series look complete
+  final_odds <- data.frame(team = teams_df$team,
+                           title_odds = teams_df$title_bin,
+                           date = rep(end_date, length(teams_df$team)))
+  my_odds <- rbind(my_odds, final_odds)
+  
+  my_odds <- fill_missing_odds(my_odds)
+  
+  
+  annotations_df <- annotations_df %>%
+    mutate(match_date = as.Date(match_date)) %>%
+    left_join(my_odds, by = c("team", "match_date" = "date"))
+  
+  my_ts <- ggplot(my_odds, aes(x = date, y = title_odds, color = team, group = team)) +
+    geom_line(linewidth=1.2) +
+    geom_hline(yintercept = c(0,1)) +
+    scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
+    scale_x_date(date_breaks = date_breaks, date_labels = "%b\n%d") +
+    scale_color_manual(values = setNames(teams_df$colours, teams_df$team)) +
+    labs(title = NULL, x = NULL, y = "Win Probability",
+         color = NULL) +
+    geom_point(data = annotations_df,
+               aes(x = match_date, y = title_odds), color = "black", size = 2) +
+    geom_label_repel(data = annotations_df, 
+                     aes(x = match_date, y = title_odds, label = caption),
+                     size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
+                     nudge_x = annotations_df$nudge_x,
+                     nudge_y = annotations_df$nudge_y) +
+    theme(legend.position = "none",
+          axis.text.x = element_text(size = 10),
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 12, hjust = 0.5))
+  
+    my_ts
+    filename <- paste0(file_abbrev, "_odds.png")
+    ggsave(filename = here("docs/viz", filename), my_ts, height=4, width=6, dpi=600)
+    
+    # Output standings as html and png
+    for (mydate in table_display_dates) {
+      formatted_table <- get_top_n_formatted(all_odds, myseason, mydate, n = 6)
+      html_code <- as_raw_html(formatted_table)
+      filename <- paste0(file_abbrev, "_table_", mydate, ".html")
+      writeLines(html_code, here("docs/viz",filename))
+      formatted_table
+      filename <- paste0(file_abbrev, "_table_", mydate, ".png")
+      gtsave(formatted_table, here("docs/viz",filename))
+    }
+    
+    # Now same for final table
+    formatted_final <- final_table_formatted(all_results, myseason, n = 6)
+    html_code <- as_raw_html(formatted_final)
+    filename <- paste0("final_table_", myseason, ".html")
+    writeLines(html_code, here("docs/viz",filename))
+    formatted_final
+    filename <- paste0("final_table_", myseason, ".png")
+    gtsave(formatted_final, here("docs/viz",filename))
+    
+    team_results <- single_team_results_formatted(all_results, team_show, myseason, 
+                                                  my_odds$date[1])
+    html_code <- as_raw_html(team_results)
+    filename <- paste0(file_abbrev, "_results_", myseason, ".html")
+    writeLines(html_code, here("docs/viz",filename))
+    team_results
+    filename <- paste0(file_abbrev, "_results_", myseason, ".png")
+    gtsave(team_results, here("docs/viz",filename))
+    
+}
+
+
+# ---- Liverpool 2013-2014 ----
+
+file_abbrev <- "li_14"
+myseason <- "2013-2014"
+teams_df <- data.frame(team=c("Liverpool", "Manchester City", "Chelsea"),
+                       title_bin = c(0,1,0),
+                       colours = c("Red", "Skyblue", "Blue"))
+annotations_df <- data.frame(team=c("Liverpool", "Liverpool", "Liverpool", 
+                                    "Manchester City", "Liverpool", "Manchester City"),
+                             match_date=c("2014-04-13", "2014-04-20", "2014-04-27",
+                                          "2014-05-03", "2014-05-05", "2014-05-11"),
+                             caption=c("Liverpool 3\nMan C 2", "Norwich 2\nLiverpool 3",
+                                       "Liverpool 0\nChelsea 2", "Everton 2\nMan C 3",
+                                       "C Palace 3\nLiverpool 3", "Man C 2\nWest Ham 0"),
+                             nudge_x=c(0,0,0,2,0,0),
+                             nudge_y=c(0,0,0,-0.1,0,0))
+date_breaks <- "3 days"
+table_display_dates = "2014-04-20"
+team_show = "Liverpool"
+
+
+generate_season_viz(file_abbrev, myseason, teams_df, annotations_df,
+                    date_breaks, table_display_dates, team_show)

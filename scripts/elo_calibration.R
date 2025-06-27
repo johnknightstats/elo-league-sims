@@ -11,8 +11,6 @@ library(tidyverse)
 library(here)
 library(patchwork)
 library(MASS)
-library(viridis)
-viridis_colors <- viridis(n = 3, option="viridis")
 
 # ---- Load utility functions ----
 
@@ -65,6 +63,9 @@ matches <- compute_elo_columns(matches)
 
 # ---- See how predictions compare to results ----
 
+# Set a custom color palette
+my_palette <- c("#233D4D", "#FF9F1C", "#41EAD4", "#FDFFFC", "#F71735")
+
 # Bin into deciles based on predicted probability
 deciles <- matches %>%
   mutate(pred_decile = ntile(prediction, 10)) %>%
@@ -79,9 +80,9 @@ deciles <- matches %>%
   )
 
 elo_deciles <- ggplot(deciles, aes(x = avg_prediction, y = avg_result)) +
-  geom_point(size = 3, color = viridis_colors[1]) +
-  geom_line(color = viridis_colors[1]) +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.01, color = viridis_colors[2]) +
+  geom_point(size = 3, color = my_palette[1]) +
+  geom_line(color = my_palette[1]) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.01, color = my_palette[2]) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
   labs(
     title = "Elo Model Accuracy by Home Prediction Decile",
@@ -108,8 +109,8 @@ matches_long <- rbind(homes, aways)
 
 # Generalized additive model
 elo_gam <- ggplot(matches_long, aes(x = net_elo, y = goals_for)) +
-  geom_jitter(width = 10, height = 0.1, alpha = 0.2, color = viridis_colors[2]) +
-  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), color = viridis_colors[3], se = FALSE) +
+  geom_jitter(width = 10, height = 0.1, alpha = 0.2, color = my_palette[2]) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), color = my_palette[3], se = FALSE) +
   labs(
     title = "Goals Scored vs Net Elo Difference (GAM Fit)",
     x = "Net Elo Difference",
@@ -141,15 +142,20 @@ goal_counts <- goal_counts %>%
 goal_plot_data <- goal_counts %>%
   pivot_longer(cols = c("observed", "poisson"), names_to = "type", values_to = "rel_freq")
 
+# Plot
+goal_plot_data$type <- factor(goal_plot_data$type, levels = c("observed", "poisson"),
+                              labels = c("Observed", "Poisson"))
+
 poisson_v_obs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
-  scale_fill_viridis_d() +
+  scale_fill_manual(values = my_palette) +
   labs(
     title = "Poisson Distribution vs Observed Goals Scored",
     x = "Goals Scored",
     y = "Relative Frequency",
     fill = NULL
   ) +
+  scale_x_discrete(limits = as.character(0:6)) +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
@@ -179,13 +185,14 @@ goal_plot_data$type <- factor(goal_plot_data$type, levels = c("observed", "poiss
 
 poisson_v_nb_v_obs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
-  scale_fill_viridis_d() +
+  scale_fill_manual(values = my_palette) +
   labs(
     title = "Observed vs Poisson vs Negative Binomial Distributions",
     x = "Goals Scored",
     y = "Relative Frequency",
     fill = NULL
   ) +
+  scale_x_discrete(limits = as.character(0:6)) +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
@@ -219,8 +226,8 @@ plot_conditional <- function(df, opp_goals, size_nb = 10) {
   
   ggplot(observed, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
     geom_col(position = position_dodge(width=0.6), width=0.5) +
-    scale_fill_viridis_d() +
-    scale_x_discrete(limits = as.character(0:5)) +
+    scale_fill_manual(values = my_palette) +
+    scale_x_discrete(limits = as.character(0:4)) +
     scale_y_continuous(limits = c(0, 0.4)) +
     labs(
       title = paste("Goals Scored | Opponent Scored", opp_goals),
@@ -247,7 +254,7 @@ ggsave(filename = here("docs/viz","cond_plots.png"), cond_plots, height=4, width
 # ---- Histogram of Elo diff distribution ----
 
 ggplot(matches_long, aes(x=net_elo)) +
-  geom_histogram(color="grey", fill=viridis_colors[1], boundary=0) +
+  geom_histogram(color="grey", fill=my_palette[1], boundary=0) +
   labs(title = "Histogram of Net Elo Difference",
        x = "Elo Difference")
 
@@ -292,22 +299,11 @@ favs <- favs %>%
     levels = c("0", "1", "2", "3+")
   ))
 
-dog_model_interactive <- lm(goals_against ~ goals_for_cat * (net_elo + I(net_elo^2)), data = favs)
-dog_model <- lm(goals_against ~ goals_for_cat + net_elo + I(net_elo^2), data = favs)
-
-anova(dog_model_interactive, dog_model, test = "F") # Simpler model is fine
+dog_model <- lm(goals_against ~ goals_for_cat * (net_elo + I(net_elo^2)), data = favs)
 
 a <- coef(fav_model)["net_elo"]
 b <- coef(fav_model)["I(net_elo^2)"]
 c <- coef(fav_model)["(Intercept)"]
-
-d <- coef(dog_model)["goals_for_cat1"]
-e <- coef(dog_model)["goals_for_cat2"]
-f <- coef(dog_model)["goals_for_cat3+"]
-
-g <- coef(dog_model)["net_elo"]
-h <- coef(dog_model)["I(net_elo^2)"]
-i <- coef(dog_model)["(Intercept)"]
 
 # Use the models to add expected goals for fav and dog
 favs <- favs %>%
@@ -352,13 +348,15 @@ goal_plot_data$type <- factor(goal_plot_data$type, levels = c("observed", "poiss
 
 fav_goals_fitted <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
   geom_col(position = position_dodge(width=0.7), width=0.5) +
-  scale_fill_viridis_d() +
+  scale_fill_manual(values = my_palette) +
   labs(
     title = "Favourite Goal Distributions from Fitted Elo Model",
     x = "Goals Scored",
     y = "Relative Frequency",
     fill = NULL
   ) +
+  # Plot
+  scale_x_discrete(limits = as.character(0:5)) +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
@@ -410,8 +408,8 @@ plot_conditional_underdog <- function(df, fav_goals, size_nb = 5) {
   
   ggplot(full_df, aes(x = as.factor(goals_against), y = rel_freq, fill = type)) +
     geom_col(position = position_dodge(width = 0.6), width = 0.5) +
-    scale_fill_viridis_d() +
-    scale_x_discrete(limits = as.character(0:5)) +
+    scale_fill_manual(values = my_palette) +
+    scale_x_discrete(limits = as.character(0:4)) +
     scale_y_continuous(limits = c(0, 0.4)) +
     labs(
       title = paste("Underdog Goals | Favorite Scored", fav_goals),
@@ -488,10 +486,13 @@ negloglik_nb_with_pointmass <- function(params, y, mu, k) {
   size <- params[1]
   alpha <- params[2]
   
-  if (alpha < 0 || alpha >= 1 || size <= 0) return(Inf)  # penalize invalid values
+  if (!is.finite(size) || !is.finite(alpha) || alpha < 0 || alpha >= 1 || size <= 0)
+    return(Inf)
   
-  mu_0 = (mu - alpha * k) / (1 - alpha) # adjust to counterbalance alpha
+  mu_0 <- (mu - alpha * k) / (1 - alpha)
   
+  # Defensive check: mu_0 should be > 0
+  if (any(mu_0 <= 0 | is.na(mu_0))) return(Inf)
   
   probs <- ifelse(
     y == k,
@@ -499,11 +500,11 @@ negloglik_nb_with_pointmass <- function(params, y, mu, k) {
     (1 - alpha) * dnbinom(y, size = size, mu = mu_0)
   )
   
-  # Avoid log(0)
-  if (any(probs <= 0)) return(Inf)
+  if (any(!is.finite(probs)) || any(probs <= 0)) return(Inf)
   
   -sum(log(probs))
 }
+
 
 
 dispersion_with_pointmass <- favs %>%
@@ -516,11 +517,11 @@ dispersion_with_pointmass <- favs %>%
       k <- unique(goals_for)
       
       # Optimize [size, alpha] jointly
-      optim(par = c(1, 0.05),
+      optim(par = c(1, 0.01),
             fn = function(p) negloglik_nb_with_pointmass(p, y = y, mu = mu, k = k),
             method = "L-BFGS-B",
             lower = c(0.01, 0.0001),
-            upper = c(10000, 0.15))
+            upper = c(10000, 0.1))
     }),
     .groups = "drop"
   ) %>%
@@ -567,12 +568,12 @@ plot_conditional_underdog <- function(df, fav_goals, size_nb, alpha) {
   
   observed$type <- factor(observed$type,
                           levels = c("observed", "poisson_pm", "negbin_pm"),
-                          labels = c("Observed", "Poisson + Pointmass", "NegBin + Pointmass"))
+                          labels = c("Observed", "Poisson + Inflation", "NegBin + Inflation"))
   
   ggplot(observed, aes(x = as.factor(goals_against), y = rel_freq, fill = type)) +
     geom_col(position = position_dodge(width = 0.6), width = 0.5) +
-    scale_fill_viridis_d() +
-    scale_x_discrete(limits = as.character(0:5)) +
+    scale_fill_manual(values = my_palette) +
+    scale_x_discrete(limits = as.character(0:4)) +
     scale_y_continuous(limits = c(0, 0.4)) +
     labs(
       title = paste("Underdog Goals | Favorite Scored", fav_goals),
