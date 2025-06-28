@@ -55,464 +55,18 @@ all_odds$games_left <- all_odds$final_pld - all_odds$pld
 # ---- Find highest probability losers ----
 
 # Highest odds for teams that did not win
-losers <- subset(all_odds, actual_champion == 0)
-highest_losers <- as.data.table(losers)[order(-title_odds), .SD[1], by=season]
+losers <- subset(all_odds, actual_champion == 0 & games_left <= 6)
+highest_losers <- as.data.table(losers)[order(-title_odds), .SD[1], by=.(season, team)]
 
-############################
-### Plot the time series ###
-############################
 
-# ---- Plot Man U 2011-12 Odds Time Series ----
+################################
+### Function to generate viz ###
+################################
 
-mu_12 <- subset(all_odds, team %in% c("Manchester United", "Manchester City")
-                & season == "2011-2012") %>%
-  select(team, title_odds, date)
-
-# Manually add final odds to make time series look complete
-final_odds <- data.frame(team = c("Manchester United", "Manchester City"),
-                         title_odds = c(0, 1),
-                         date = as.Date(c("2012-05-13", "2012-05-13")))
-mu_12 <- rbind(mu_12, final_odds)
-
-fill_missing_odds <- function(df) {
-  
-  df_filled <- df %>%
-    group_by(team) %>%
-    complete(date = seq(min(date), max(date), by = "day")) %>%
-    arrange(team, date) %>%
-    fill(title_odds, .direction = "down") %>% 
-    ungroup()
-  
-  return(df_filled)
-}
-
-mu_12 <- fill_missing_odds(mu_12)
-
-# Add annotations for key results
-mu_12$annotation <- NA
-mu_12$annotation[mu_12$team == "Manchester United" & mu_12$date == as.Date("2012-04-11")] <- "Wigan 1\nMan U 0"
-mu_12$annotation[mu_12$team == "Manchester United" & mu_12$date == as.Date("2012-04-22")] <- "Man U 4\nEverton 4"
-mu_12$annotation[mu_12$team == "Manchester City" & mu_12$date == as.Date("2012-04-30")] <- "Man C 1\nMan U 0"
-mu_12$annotation[mu_12$team == "Manchester City" & mu_12$date == as.Date("2012-05-06")] <- "Newcastle 0\nMan C 2"
-mu_12$annotation[mu_12$team == "Manchester City" & mu_12$date == as.Date("2012-05-13")] <- "Man C 3\nQPR 2"
-
-mu_12_labels <- mu_12 %>%
-  filter(!is.na(annotation)) %>%
-  mutate(
-    nudge_x = ifelse(annotation == "Man C 1\nMan U 0", 3,
-                     ifelse(annotation == "Newcastle 0\nMan C 2", -3, 0)),
-    nudge_y = ifelse(annotation == "Man C 1\nMan U 0", -0.1,
-                     ifelse(annotation == "Newcastle 0\nMan C 2", 0.05, 0))
-  )
-
-mu_12_odds <- ggplot(mu_12, aes(x = date, y = title_odds, color = team, group = team)) +
-  geom_line(linewidth=1.2) +
-  geom_hline(yintercept = c(0,1)) +
-  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
-  scale_color_manual(values = c("Manchester United" = "red", "Manchester City" = "skyblue")) +
-  labs(title = NULL, x = NULL, y = "Win Probability", 
-       color = NULL) +
-  geom_point(data = filter(mu_12, !is.na(annotation)),
-             aes(x = date, y = title_odds), color = "black", size = 2) +
-  geom_label_repel(data = filter(mu_12, !is.na(annotation)), 
-            aes(x = date, y = title_odds, label = annotation),
-            size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
-            nudge_x = mu_12_labels$nudge_x,
-            nudge_y = mu_12_labels$nudge_y) +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(size = 12, hjust = 0.5))
-  
-
-mu_12_odds
-ggsave(filename = here("docs/viz","mu_12_odds.png"), mu_12_odds, height=4, width=6, dpi=600)
-
-# Standings
-mydate <- "2012-04-10"
-formatted_table <- get_top_n_formatted(all_odds, "2011-2012", mydate, n = 6)
-html_code <- as_raw_html(formatted_table)
-filename <- paste0("mu_12_table_", mydate, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_table
-filename <- paste0("mu_12_table_", mydate, ".png")
-gtsave(formatted_table, here("docs/viz",filename))
-
-myseason <- "2011-2012"
-formatted_final <- final_table_formatted(all_results, myseason, n = 6)
-html_code <- as_raw_html(formatted_final)
-filename <- paste0("final_table_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_final
-filename <- paste0("final_table_", myseason, ".png")
-gtsave(formatted_final, here("docs/viz",filename))
-
-end_results <- print_results_formatted(all_results, c("Manchester City", "Manchester United"), myseason, mydate)
-html_code <- as_raw_html(end_results)
-filename <- paste0("end_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-end_results
-filename <- paste0("end_results_", myseason, ".png")
-gtsave(end_results, here("docs/viz",filename))
-
-mu_12_results <- single_team_results_formatted(all_results, "Manchester United", "2011-2012", "2012-04-10")
-html_code <- as_raw_html(mu_12_results)
-filename <- paste0("mu_12_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-mu_12_results
-filename <- paste0("mu_12_results_", myseason, ".png")
-gtsave(mu_12_results, here("docs/viz",filename))
-
-# ---- Plot Burnley 1961-1962 Odds Time Series ----
-
-bu_62 <- subset(all_odds, team %in% c("Burnley", "Ipswich Town")
-                & season == "1961-1962") %>%
-  select(team, title_odds, date)
-
-# Manually add final odds to make time series look complete
-final_odds <- data.frame(team = c("Burnley", "Ipswich Town"),
-                         title_odds = c(0, 1),
-                         date = as.Date(c("1962-04-30", "1962-04-30")))
-bu_62 <- rbind(bu_62, final_odds)
-
-bu_62 <- fill_missing_odds(bu_62)
-
-# Add annotations for key results
-bu_62$annotation <- NA
-bu_62$annotation[bu_62$team == "Burnley" & bu_62$date == as.Date("1962-04-14")] <- "Burnley 1\nMan U 3"
-bu_62$annotation[bu_62$team == "Burnley" & bu_62$date == as.Date("1962-04-17")] <- "Burnley 0\nBlackburn 1"
-bu_62$annotation[bu_62$team == "Ipswich Town" & bu_62$date == as.Date("1962-04-23")] <- "Arsenal 0\nIpswich 3"
-bu_62$annotation[bu_62$team == "Burnley" & bu_62$date == as.Date("1962-04-23")] <- "Blackpool 1\nBurnley 1"
-bu_62$annotation[bu_62$team == "Ipswich Town" & bu_62$date == as.Date("1962-04-28")] <- "Ipswich 2\nA Villa 0"
-bu_62$annotation[bu_62$team == "Burnley" & bu_62$date == as.Date("1962-04-28")] <- "Burnley 1\nChelsea 1"
-
-bu_62_odds <- ggplot(bu_62, aes(x = date, y = title_odds, color = team, group = team)) +
-  geom_line(linewidth=1.2) +
-  geom_hline(yintercept = c(0,1)) +
-  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
-  scale_color_manual(values = c("Burnley" = "maroon","Ipswich Town" = "blue3")) +
-  labs(title = NULL, x = NULL, y = "Win Probability", 
-       color = NULL) +
-  geom_point(data = filter(bu_62, !is.na(annotation)),
-             aes(x = date, y = title_odds), color = "black", size = 2) +
-  geom_label_repel(data = filter(bu_62, !is.na(annotation)), 
-                   aes(x = date, y = title_odds, label = annotation),
-                   size = 3.5, color = "black", box.padding = 0.5, force = 15) +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(size = 12, hjust = 0.5))
-
-bu_62_odds
-ggsave(filename = here("docs/viz","bu_62_odds.png"), bu_62_odds, height=4, width=6, dpi=600)
-
-# Standings
-mydate <- "1962-04-09"
-formatted_table <- get_top_n_formatted(all_odds, "1961-1962", mydate, n = 6)
-html_code <- as_raw_html(formatted_table)
-filename <- paste0("bu_62_table_", mydate, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_table
-filename <- paste0("bu_62_table_", mydate, ".png")
-gtsave(formatted_table, here("docs/viz",filename))
-
-myseason <- "1961-1962"
-formatted_final <- final_table_formatted(all_results, myseason, n = 6)
-html_code <- as_raw_html(formatted_final)
-filename <- paste0("final_table_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_final
-filename <- paste0("final_table_", myseason, ".png")
-gtsave(formatted_final, here("docs/viz",filename))
-
-end_results <- print_results_formatted(all_results, c("Burnley", "Ipswich Town"), myseason, mydate)
-html_code <- as_raw_html(end_results)
-filename <- paste0("end_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-end_results
-filename <- paste0("end_results_", myseason, ".png")
-gtsave(end_results, here("docs/viz",filename))
-
-bu_62_results <- single_team_results_formatted(all_results, "Burnley", "1961-1962", "1962-04-09")
-html_code <- as_raw_html(bu_62_results)
-filename <- paste0("bu_62_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-bu_62_results
-filename <- paste0("bu_62_results_", myseason, ".png")
-gtsave(bu_62_results, here("docs/viz",filename))
-
-# ---- Plot Liverpool 1988-1989 Odds Time Series ----
-
-li_89 <- subset(all_odds, team %in% c("Liverpool", "Arsenal")
-                & season == "1988-1989") %>%
-  select(team, title_odds, date)
-
-# Manually add final odds to make time series look complete
-final_odds <- data.frame(team = c("Liverpool", "Arsenal"),
-                         title_odds = c(0, 1),
-                         date = as.Date(c("1989-05-26", "1989-05-26")))
-li_89 <- rbind(li_89, final_odds)
-
-li_89 <- fill_missing_odds(li_89)
-
-li_89 <- subset(li_89, date >= "1989-04-28")
-
-# Add annotations for key results
-li_89$annotation <- NA
-li_89$annotation[li_89$team == "Arsenal" & li_89$date == as.Date("1989-05-01")] <- "Arsenal 5\nNorwich 0"
-li_89$annotation[li_89$team == "Arsenal" & li_89$date == as.Date("1989-05-06")] <- "Middlesbrough 0\nArsenal 1"
-li_89$annotation[li_89$team == "Arsenal" & li_89$date == as.Date("1989-05-13")] <- "Arsenal 1\nDerby 2"
-li_89$annotation[li_89$team == "Liverpool" & li_89$date == as.Date("1989-05-13")] <- "Wimbledon 1\nLiverpool 2"
-li_89$annotation[li_89$team == "Liverpool" & li_89$date == as.Date("1989-05-23")] <- "Liverpool 5\nWest Ham 1"
-li_89$annotation[li_89$team == "Liverpool" & li_89$date == as.Date("1989-05-26")] <- "Liverpool 0\nArsenal 2"
-
-li_89_labels <- li_89 %>%
-  filter(!is.na(annotation)) %>%
-  mutate(
-    nudge_x = ifelse(annotation == "Liverpool 5\nWest Ham 1", -3,0),
-    nudge_y = ifelse(annotation == "Liverpool 5\nWest Ham 1", 0,0)
-  )
-
-li_89_odds <- ggplot(li_89, aes(x = date, y = title_odds, color = team, group = team)) +
-  geom_line(linewidth=1.2) +
-  geom_hline(yintercept = c(0,1)) +
-  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
-  scale_color_manual(values = c("Liverpool" = "red", "Arsenal" = "yellow")) +
-  labs(title = NULL, x = NULL, y = "Win Probability", 
-       color = NULL) +
-  geom_point(data = filter(li_89, !is.na(annotation)),
-             aes(x = date, y = title_odds), color = "black", size = 2) +
-  geom_label_repel(data = filter(li_89, !is.na(annotation)), 
-                   aes(x = date, y = title_odds, label = annotation),
-                   size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
-                   nudge_x = li_89_labels$nudge_x,
-                   nudge_y = li_89_labels$nudge_y) +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(size = 12, hjust = 0.5))
-
-li_89_odds
-ggsave(filename = here("docs/viz","li_89_odds.png"), li_89_odds, height=4, width=6, dpi=600)
-
-# Standings
-mydate <- "1989-05-06"
-formatted_table <- get_top_n_formatted(all_odds, "1988-1989", mydate, n = 6)
-html_code <- as_raw_html(formatted_table)
-filename <- paste0("li_89_table_", mydate, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_table
-filename <- paste0("li_89_table_", mydate, ".png")
-gtsave(formatted_table, here("docs/viz",filename))
-
-mydate <- "1989-05-23"
-formatted_table <- get_top_n_formatted(all_odds, "1988-1989", mydate, n = 6)
-html_code <- as_raw_html(formatted_table)
-filename <- paste0("li_89_table_", mydate, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_table
-filename <- paste0("li_89_table_", mydate, ".png")
-gtsave(formatted_table, here("docs/viz",filename))
-
-myseason <- "1988-1989"
-formatted_final <- final_table_formatted(all_results, myseason, n = 6)
-html_code <- as_raw_html(formatted_final)
-filename <- paste0("final_table_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_final
-filename <- paste0("final_table_", myseason, ".png")
-gtsave(formatted_final, here("docs/viz",filename))
-
-end_results <- print_results_formatted(all_results, c("Liverpool", "Arsenal"), myseason, mydate)
-html_code <- as_raw_html(end_results)
-filename <- paste0("end_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-end_results
-filename <- paste0("end_results_", myseason, ".png")
-gtsave(end_results, here("docs/viz",filename))
-
-li_89_results <- single_team_results_formatted(all_results, "Liverpool", "1988-1989", "1989-05-01")
-html_code <- as_raw_html(li_89_results)
-filename <- paste0("li_89_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-li_89_results
-filename <- paste0("li_89_results_", myseason, ".png")
-gtsave(li_89_results, here("docs/viz",filename))
-
-# ---- Plot Man Utd 1991-1992 Odds Time Series ----
-
-mu_92 <- subset(all_odds, team %in% c("Manchester United", "Leeds United")
-                & season == "1991-1992") %>%
-  select(team, title_odds, date)
-
-# Manually add final odds to make time series look complete
-final_odds <- data.frame(team = c("Manchester United", "Leeds United"),
-                         title_odds = c(0, 1),
-                         date = as.Date(c("1992-05-02", "1992-05-02")))
-mu_92 <- rbind(mu_92, final_odds)
-
-mu_92 <- fill_missing_odds(mu_92)
-
-# Add annotations for key results
-mu_92$annotation <- NA
-mu_92$annotation[mu_92$team == "Manchester United" & mu_92$date == as.Date("1992-04-20")] <- "Man U 1\nN Forest 2"
-mu_92$annotation[mu_92$team == "Manchester United" & mu_92$date == as.Date("1992-04-22")] <- "West Ham 1\nMan U 0"
-mu_92$annotation[mu_92$team == "Manchester United" & mu_92$date == as.Date("1992-04-26")] <- "Liverpool 2\nMan U 0"
-
-mu_92_odds <- ggplot(mu_92, aes(x = date, y = title_odds, color = team, group = team)) +
-  geom_line(linewidth=1.2) +
-  geom_hline(yintercept = c(0,1)) +
-  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
-  scale_color_manual(values = c("Manchester United" = "red", "Leeds United" = "white")) +
-  labs(title = NULL, x = NULL, y = "Win Probability", 
-       color = NULL) +
-  geom_point(data = filter(mu_92, !is.na(annotation)),
-             aes(x = date, y = title_odds), color = "black", size = 2) +
-  geom_label_repel(data = filter(mu_92, !is.na(annotation)), 
-                   aes(x = date, y = title_odds, label = annotation),
-                   size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15) +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(size = 12, hjust = 0.5))
-
-mu_92_odds
-ggsave(filename = here("docs/viz","mu_92_odds.png"), mu_92_odds, height=4, width=6, dpi=600)
-
-mydate <- "1992-04-04"
-formatted_table <- get_top_n_formatted(all_odds, "1991-1992", mydate, n = 6)
-html_code <- as_raw_html(formatted_table)
-filename <- paste0("mu_92_table_", mydate, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_table
-filename <- paste0("mu_92_table_", mydate, ".png")
-gtsave(formatted_table, here("docs/viz",filename))
-
-myseason <- "1991-1992"
-formatted_final <- final_table_formatted(all_results, myseason, n = 6)
-html_code <- as_raw_html(formatted_final)
-filename <- paste0("final_table_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_final
-filename <- paste0("final_table_", myseason, ".png")
-gtsave(formatted_final, here("docs/viz",filename))
-
-end_results <- print_results_formatted(all_results, c("Manchester United", "Leeds United"), myseason, mydate)
-html_code <- as_raw_html(end_results)
-filename <- paste0("end_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-end_results
-filename <- paste0("end_results_", myseason, ".png")
-gtsave(end_results, here("docs/viz",filename))
-
-mu_92_results <- single_team_results_formatted(all_results, "Manchester United", "1991-1992", "1992-04-04")
-html_code <- as_raw_html(mu_92_results)
-filename <- paste0("mu_92_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-mu_92_results
-filename <- paste0("mu_92_results_", myseason, ".png")
-gtsave(mu_92_results, here("docs/viz",filename))
-
-# ---- Plot Liverpool 2013-2014 Odds Time Series ----
-
-li_14 <- subset(all_odds, team %in% c("Liverpool", "Manchester City", "Chelsea")
-                & season == "2013-2014") %>%
-  select(team, title_odds, date)
-
-# Manually add final odds to make time series look complete
-final_odds <- data.frame(team = c("Liverpool", "Manchester City", "Chelsea"),
-                         title_odds = c(0, 1, 0),
-                         date = as.Date(c("2014-05-11", "2014-05-11", "2014-05-11")))
-li_14 <- rbind(li_14, final_odds)
-
-li_14 <- fill_missing_odds(li_14)
-
-# Add annotations for key results
-li_14$annotation <- NA
-li_14$annotation[li_14$team == "Liverpool" & li_14$date == as.Date("2014-04-13")] <- "Liverpool 3\nMan C 2"
-li_14$annotation[li_14$team == "Liverpool" & li_14$date == as.Date("2014-04-20")] <- "Norwich 2\nLiverpool 3"
-li_14$annotation[li_14$team == "Liverpool" & li_14$date == as.Date("2014-04-27")] <- "Liverpool 0\nChelsea 2"
-li_14$annotation[li_14$team == "Manchester City" & li_14$date == as.Date("2014-05-03")] <- "Everton 2\nMan C 3"
-li_14$annotation[li_14$team == "Liverpool" & li_14$date == as.Date("2014-05-05")] <- "C Palace 3\nLiverpool 3"
-li_14$annotation[li_14$team == "Manchester City" & li_14$date == as.Date("2014-05-11")] <- "Man C 2\nWest Ham 0"
-
-li_14_labels <- li_14 %>%
-  filter(!is.na(annotation)) %>%
-  mutate(
-    nudge_x = ifelse(annotation == "Everton 2\nMan C 3", 2,0),
-    nudge_y = ifelse(annotation == "Everton 2\nMan C 3", -0.1,0)
-  )
-
-li_14_odds <- ggplot(li_14, aes(x = date, y = title_odds, color = team, group = team)) +
-  geom_line(linewidth=1.2) +
-  geom_hline(yintercept = c(0,1)) +
-  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1), labels = scales::percent_format()) +
-  scale_x_date(date_breaks = "3 days", date_labels = "%b\n%d") +
-  scale_color_manual(values = c("Liverpool" = "red", "Manchester City" = "skyblue",
-                                "Chelsea" = "blue")) +
-  labs(title = NULL, x = NULL, y = "Win Probability",
-       color = NULL) +
-  geom_point(data = filter(li_14, !is.na(annotation)),
-             aes(x = date, y = title_odds), color = "black", size = 2) +
-  geom_label_repel(data = filter(li_14, !is.na(annotation)), 
-                   aes(x = date, y = title_odds, label = annotation),
-                   size = 3.5, color = "black", box.padding = 0.5, max.overlaps = 10, force = 15,
-                   nudge_x = li_14_labels$nudge_x,
-                   nudge_y = li_14_labels$nudge_y) +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 10),
-        axis.text.y = element_text(size = 10),
-        plot.title = element_text(size = 12, hjust = 0.5))
-
-
-li_14_odds
-ggsave(filename = here("docs/viz","li_14_odds.png"), li_14_odds, height=4, width=6, dpi=600)
-
-mydate <- "2014-04-20"
-formatted_table <- get_top_n_formatted(all_odds, "2013-2014", mydate, n = 6)
-html_code <- as_raw_html(formatted_table)
-filename <- paste0("li_14_table_", mydate, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_table
-filename <- paste0("li_14_table_", mydate, ".png")
-gtsave(formatted_table, here("docs/viz",filename))
-
-
-myseason <- "2013-2014"
-formatted_final <- final_table_formatted(all_results, myseason, n = 6)
-html_code <- as_raw_html(formatted_final)
-filename <- paste0("final_table_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-formatted_final
-filename <- paste0("final_table_", myseason, ".png")
-gtsave(formatted_final, here("docs/viz",filename))
-
-end_results <- print_results_formatted(all_results, c("Liverpool", "Chelsea", "Manchester City"), myseason, mydate)
-html_code <- as_raw_html(end_results)
-filename <- paste0("end_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-end_results
-filename <- paste0("end_results_", myseason, ".png")
-gtsave(end_results, here("docs/viz",filename))
-
-li_14_results <- single_team_results_formatted(all_results, "Liverpool", "2013-2014", "2014-04-20")
-html_code <- as_raw_html(li_14_results)
-filename <- paste0("li_14_results_", myseason, ".html")
-writeLines(html_code, here("docs/viz",filename))
-li_14_results
-filename <- paste0("li_14_results_", myseason, ".png")
-gtsave(li_14_results, here("docs/viz",filename))
-
-
-
-# ---- Plot as function ----
 
 generate_season_viz <- function(file_abbrev, myseason, teams_df, annotations_df,
-                                date_breaks, table_display_dates, team_show) {
+                                date_breaks, table_display_dates, team_show, 
+                                start_date="1900-01-01") {
   # teams_df = team, title_bin, colours
   # annotations_df = team, match_date, caption, nudge_x, nudge_y
   
@@ -521,7 +75,7 @@ generate_season_viz <- function(file_abbrev, myseason, teams_df, annotations_df,
   end_date <- max(all_results$match_date[all_results$season == myseason], na.rm = TRUE)
   
   my_odds <- subset(all_odds, team %in% teams_df$team
-                  & season == myseason) %>%
+                  & season == myseason & date >= start_date) %>%
     select(team, title_odds, date)
   
   fill_missing_odds <- function(df) {
@@ -568,10 +122,9 @@ generate_season_viz <- function(file_abbrev, myseason, teams_df, annotations_df,
           axis.text.x = element_text(size = 10),
           axis.text.y = element_text(size = 10),
           plot.title = element_text(size = 12, hjust = 0.5))
-  
-    my_ts
+
     filename <- paste0(file_abbrev, "_odds.png")
-    ggsave(filename = here("docs/viz", filename), my_ts, height=4, width=6, dpi=600)
+    ggsave(filename = here("docs/viz", filename), plot=my_ts, height=4, width=6, dpi=600)
     
     # Output standings as html and png
     for (mydate in table_display_dates) {
@@ -604,6 +157,59 @@ generate_season_viz <- function(file_abbrev, myseason, teams_df, annotations_df,
     
 }
 
+###########################################
+### Generate the viz for top 10 seasons ###
+###########################################
+
+
+# ---- Manchester United 2011-2012 ----
+
+file_abbrev <- "mu_12"
+myseason <- "2011-2012"
+teams_df <- data.frame(team=c("Manchester United", "Manchester City"),
+                       title_bin = c(0,1),
+                       colours = c("red", "skyblue"))
+annotations_df <- data.frame(team=c("Manchester United", "Manchester United",
+                              "Manchester City", "Manchester City", "Manchester City"),
+                             match_date=c("2012-04-11", "2012-04-22", "2012-04-30",
+                                          "2012-05-06", "2012-05-13"),
+                             caption=c("Wigan 1\nMan U 0", "Man U 4\nEverton 4",
+                                       "Man C 1\nMan U 0", "Newcastle 0\nMan C 2",
+                                       "Man C 3\nQPR 2"),
+                             nudge_x=c(0,0,0,-3,0),
+                             nudge_y=c(0,0,0,0.05,0))
+date_breaks <- "3 days"
+table_display_dates = "2012-04-08"
+team_show = "Manchester United"
+
+
+generate_season_viz(file_abbrev, myseason, teams_df, annotations_df,
+                    date_breaks, table_display_dates, team_show)
+
+# ---- Liverpool 1988-1989 ----
+
+
+
+file_abbrev <- "li_89"
+myseason <- "1988-1989"
+teams_df <- data.frame(team=c("Liverpool", "Arsenal"),
+                       title_bin = c(0,1),
+                       colours = c("red", "yellow"))
+annotations_df <- data.frame(team=c("Arsenal", "Arsenal", "Arsenal",
+                                    "Liverpool", "Liverpool", "Liverpool"),
+                             match_date=c("1989-05-01", "1989-05-06", "1989-05-13",
+                                          "1989-05-13", "1989-05-23", "1989-05-26"),
+                             caption=c("Arsenal 5\nNorwich 0", "Middlesbrough 0\nArsenal 1",
+                                       "Arsenal 1\nDerby 2", "Wimbledon 1\nLiverpool 2",
+                                       "Liverpool 5\nWest Ham 1", "Liverpool 0\nArsenal 2"),
+                             nudge_x=c(0,0,0,0,-3,-1),
+                             nudge_y=c(0.15,0,0,0,0,0.3))
+date_breaks <- "3 days"
+table_display_dates <- c("1989-05-06", "1989-05-23")
+team_show <- "Liverpool"
+
+generate_season_viz(file_abbrev, myseason, teams_df, annotations_df,
+                    date_breaks, table_display_dates, team_show, start_date="1989-04-24")
 
 # ---- Liverpool 2013-2014 ----
 
@@ -626,5 +232,56 @@ table_display_dates = "2014-04-20"
 team_show = "Liverpool"
 
 
+
 generate_season_viz(file_abbrev, myseason, teams_df, annotations_df,
-                    date_breaks, table_display_dates, team_show)
+                    date_breaks, table_display_dates, team_show, start_date="2014-04-08")
+
+# ---- Manchester United 1991-1992 ----
+
+file_abbrev <- "mu_92"
+myseason <- "1991-1992"
+teams_df <- data.frame(team=c("Manchester United", "Leeds United"),
+                       title_bin = c(0,1),
+                       colours = c("red", "white"))
+annotations_df <- data.frame(team=c("Manchester United", "Manchester United",
+                                    "Leeds United", "Manchester United"),
+                             match_date=c("1992-04-20", "1992-04-22", "1992-04-26",
+                                          "1992-04-26"),
+                             caption=c("Man U 1\nN Forest 2", "West Ham 1\nMan U 0",
+                                       "Sheff U 2\nLeeds 3", "Liverpool 2\nMan U 0"),
+                             nudge_x=c(0,0,0,0),
+                             nudge_y=c(0,0,0,0))
+date_breaks <- "3 days"
+table_display_dates = "1992-04-16"
+team_show = "Manchester United"
+
+
+generate_season_viz(file_abbrev, myseason, teams_df, annotations_df,
+                    date_breaks, table_display_dates, team_show, start_date="1992-04-14")
+
+# ---- Burnley 1961-1962 ----
+
+file_abbrev <- "bu_62"
+myseason <- "1961-1962"
+teams_df <- data.frame(team=c("Burnley", "Ipswich Town"),
+                       title_bin = c(0,1),
+                       colours = c("maroon", "blue3"))
+annotations_df <- data.frame(team=c("Burnley", "Ipswich Town", "Burnley",
+                                    "Ipswich Town", "Burnley"),
+                             match_date=c("1962-04-17", "1962-04-23",
+                                          "1962-04-23", "1962-04-28", "1962-04-28"),
+                             caption=c("Burnley 0\nBlackburn 1",
+                                       "Arsenal 0\nIpswich 3", "Blackpool 1\nBurnley 1",
+                                       "Ipswich 2\nA Villa 0", "Burnley 1\nChelsea 1"),
+                             nudge_x=c(0,0,0,0,0),
+                             nudge_y=c(0,0,0,0,0))
+date_breaks <- "3 days"
+table_display_dates = "1962-04-14"
+team_show = "Burnley"
+
+generate_season_viz(file_abbrev, myseason, teams_df, annotations_df,
+                    date_breaks, table_display_dates, team_show, "1962-04-12")
+
+
+
+

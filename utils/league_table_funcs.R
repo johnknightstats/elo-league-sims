@@ -185,14 +185,14 @@ get_top_n_formatted <- function(odds_df, season, date, n = 8) {
   standings <- subset(odds_df, date == latest_date)
   
   year <- as.numeric(substr(season, 1, 4))
-  tiebreaker <- if (year >= 1981) "GD" else "GA"
+  tiebreaker <- if (year >= 1976) "GD" else "GA"
   
-  cols_to_use <- c("rank", "team", "pld", "won", "drawn", "lost", "goals_for",
+  cols_to_use <- c("rank", "team", "pld", "goals_for",
                    "goals_against", tiebreaker, "pts", "latest_elo", "title_odds")
   
   topn <- standings[1:min(n, nrow(standings)), ..cols_to_use]
 
-  names(topn) <- c("#", "Team", "Pld", "W", "D", "L", "F", "A", tiebreaker, "Pts", "Elo", "Win %")
+  names(topn) <- c("#", "Team", "Pld", "F", "A", tiebreaker, "Pts", "Elo", "Win %")
   
   if (tiebreaker == "GA") {
     topn$GA <- round(topn$GA, 2)
@@ -220,7 +220,7 @@ get_top_n_formatted <- function(odds_df, season, date, n = 8) {
   formatted_table <- topn %>%
     gt() %>%
     cols_label(
-      `#` = "#", Team = "Team", Pld = "Pld", W = "W", D = "D", L = "L",
+      `#` = "#", Team = "Team", Pld = "Pld", 
       F = "F", A = "A", !!tiebreaker := tiebreaker, Pts = "Pts", Elo = "Elo"
     ) %>%
     
@@ -286,14 +286,14 @@ final_table_formatted <- function(results_df, season, n=6) {
   
   standings <- get_final_standings(results_df, season)
     year <- as.numeric(substr(season, 1, 4))
-  tiebreaker <- if (year >= 1981) "GD" else "GA"
+  tiebreaker <- if (year >= 1976) "GD" else "GA"
   
-  cols_to_use <- c("rank", "team", "pld", "won", "drawn", "lost", "goals_for",
+  cols_to_use <- c("rank", "team", "pld", "goals_for",
                    "goals_against", tiebreaker, "pts")
   
   topn <- standings[1:min(n, nrow(standings)), cols_to_use]
   
-  names(topn) <- c("#", "Team", "Pld", "W", "D", "L", "F", "A", tiebreaker, "Pts")
+  names(topn) <- c("#", "Team", "Pld", "F", "A", tiebreaker, "Pts")
   
   if (tiebreaker == "GA") {
     topn$GA <- round(topn$GA, 2)
@@ -306,7 +306,7 @@ final_table_formatted <- function(results_df, season, n=6) {
   formatted_table <- topn %>%
     gt() %>%
     cols_label(
-      `#` = "#", Team = "Team", Pld = "Pld", W = "W", D = "D", L = "L",
+      `#` = "#", Team = "Team", Pld = "Pld", 
       F = "F", A = "A", !!tiebreaker := tiebreaker, Pts = "Pts"
     ) %>%
     
@@ -393,7 +393,7 @@ print_results_formatted <- function(results_df, teams, my_season, start_date) {
     )
 }
 
-single_team_results_formatted <- function(results_df, team, my_season, start_date) {
+single_team_results_formatted <- function(results_df, team, my_season, start_date, n=6) {
   
   start_date <- as.Date(start_date)
   
@@ -417,6 +417,7 @@ single_team_results_formatted <- function(results_df, team, my_season, start_dat
     ) %>%
     select(match_date, opponent_display, result, score) %>%
     arrange(match_date) %>%
+    tail(n) %>% 
     gt() %>%
     cols_label(
       match_date = "Date",
