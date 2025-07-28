@@ -1,0 +1,109 @@
+Folder PATH listing for volume OS
+Volume serial number is DC66-CEA9
+C:.
+¦   .gitignore
+¦   .Rhistory
+¦   elo-league-sims.Rproj
+¦   LICENSE
+¦   README.md
+¦   structure.txt
+¦   styles.css
+¦   
++---data
+¦   ¦   .gitkeep
+¦   ¦   elo_model.rds
+¦   ¦   elo_to_fbref_team_name_mappings.csv
+¦   ¦   england_matches_elo_with_predictions.csv
+¦   ¦   england_matches_with_elo.csv
+¦   ¦   england_top_flight_matches.csv
+¦   ¦   team_name_mismatches.csv
+¦   ¦   
+¦   +---elo
+¦   ¦       
+¦   +---odds
+¦           
++---dev
+¦       get_match_data.R
+¦       merge_elo_match_data.R
+¦       
++---docs
+¦   ¦   article_research.md
+¦   ¦   Boshnakov bivariate Weibull.pdf
+¦   ¦   Gilch Nested Poisson 2022.pdf
+¦   ¦   styles.css
+¦   ¦   
+¦   +---viz
+¦           bu_62_odds.png
+¦           bu_62_results_1961-1962.html
+¦           bu_62_results_1961-1962.png
+¦           bu_62_table_1962-04-14.html
+¦           bu_62_table_1962-04-14.png
+¦           chapman_sofa.png
+¦           cond_plots.png
+¦           deciles_new.png
+¦           elo_deciles.png
+¦           elo_gam.png
+¦           elo_mean_seasons.png
+¦           fav_goals_fitted.png
+¦           final_table_1961-1962.html
+¦           final_table_1961-1962.png
+¦           final_table_1988-1989.html
+¦           final_table_1988-1989.png
+¦           final_table_1991-1992.html
+¦           final_table_1991-1992.png
+¦           final_table_2011-2012.html
+¦           final_table_2011-2012.png
+¦           final_table_2013-2014.html
+¦           final_table_2013-2014.png
+¦           goals_pg_seasons.png
+¦           home_suprem_seasons.png
+¦           ipswich_town_1962.png
+¦           li_14_odds.png
+¦           li_14_results_2013-2014.html
+¦           li_14_results_2013-2014.png
+¦           li_14_table_2014-04-20.html
+¦           li_14_table_2014-04-20.png
+¦           li_89_odds.png
+¦           li_89_results_1988-1989.html
+¦           li_89_results_1988-1989.png
+¦           li_89_table_1989-05-06.html
+¦           li_89_table_1989-05-06.png
+¦           li_89_table_1989-05-23.html
+¦           li_89_table_1989-05-23.png
+¦           model_v_scores.png
+¦           mu_12_odds.png
+¦           mu_12_results_2011-2012.html
+¦           mu_12_results_2011-2012.png
+¦           mu_12_table_2012-04-09.html
+¦           mu_12_table_2012-04-09.png
+¦           mu_92_odds.png
+¦           mu_92_results_1991-1992.html
+¦           mu_92_results_1991-1992.png
+¦           mu_92_table_1992-04-16.html
+¦           mu_92_table_1992-04-16.png
+¦           poisson_v_nb_v_obs.png
+¦           poisson_v_nb_v_obs_10k.png
+¦           poisson_v_obs.png
+¦           thomas_1989.gif
+¦           underdog_cond_plots.png
+¦           underdog_cond_plots_disperson_5.png
+¦           underdog_cond_plots_fitted_dispersion.png
+¦           underdog_cond_pointmass.png
+¦           wdl.png
+¦           
++---scripts
+¦       .gitkeep
+¦       .Rhistory
+¦       descriptive_analysis.R
+¦       elo_calibration.R
+¦       elo_league_simulator.R
+¦       elo_model.R
+¦       get_clubelo.R
+¦       league_odds_analysis.R
+¦       
++---utils
+        .gitkeep
+        compute_elo_columns.R
+        elo_helper_functions.R
+        league_table_funcs.R
+        

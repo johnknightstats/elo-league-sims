@@ -1,14 +1,27 @@
+# R session and IDE
 .Rhistory
 .RData
 .Rproj.user/
 .Ruserdata
 *.Rproj
 .Renviron
-*.sqlite
-data/
+
+# OS junk
 .DS_Store
 Thumbs.db
-logs/
+
+# Output and logs
 *.log
+logs/
+
+# Data
+data/*
+!data/.gitkeep
+
+# Private development scripts
 dev/
-docs/
+docs/article_research.md
+docs/styles.css  # (optional: remove this line if actually needed)
+
+# Quarto & HTML artifacts (optional)
+*.html

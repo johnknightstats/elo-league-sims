@@ -83,16 +83,18 @@ elo_deciles <- ggplot(deciles, aes(x = avg_prediction, y = avg_result)) +
   geom_point(size = 3, color = my_palette[1]) +
   geom_line(color = my_palette[1]) +
   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.01, color = my_palette[2]) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = my_palette[1]) +
   labs(
     title = "Elo Model Accuracy by Home Prediction Decile",
     x = "Mean Predicted Probability",
     y = "Mean Actual Result"
   ) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
 elo_deciles
-ggsave(filename = here("docs/viz","elo_deciles.png"), elo_deciles, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","elo_deciles.png"), elo_deciles, 
+       bg = "white", height=4, width=6, dpi=600)
 
 # ---- Inspect goal distribution vs. Elo difference ----
 
@@ -109,17 +111,19 @@ matches_long <- rbind(homes, aways)
 
 # Generalized additive model
 elo_gam <- ggplot(matches_long, aes(x = net_elo, y = goals_for)) +
-  geom_jitter(width = 10, height = 0.1, alpha = 0.2, color = my_palette[2]) +
-  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), color = my_palette[3], se = FALSE) +
+  geom_jitter(width = 10, height = 0.1, alpha = 0.2, color = my_palette[1]) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), color = my_palette[2], se = FALSE) +
   labs(
-    title = "Goals Scored vs Net Elo Difference (GAM Fit)",
+    title = "Goals Scored vs Net Elo Difference (GAM)",
     x = "Net Elo Difference",
     y = "Goals Scored"
   ) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
 elo_gam
-ggsave(filename = here("docs/viz","elo_gam.png"), elo_deciles, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","elo_gam.png"), elo_gam, 
+       bg = "white", height=4, width=6, dpi=600)
 
 # ---- Compare observed goals vs. Poisson distribution ----
 
@@ -156,11 +160,13 @@ poisson_v_obs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_fr
     fill = NULL
   ) +
   scale_x_discrete(limits = as.character(0:6)) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
 poisson_v_obs
-ggsave(filename = here("docs/viz","poisson_v_obs.png"), poisson_v_obs, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","poisson_v_obs.png"), poisson_v_obs, 
+       bg = "white", height=4, width=6, dpi=600)
 
 lambda_all
 var(matches_long$goals_for) # Variance is higher than mean
@@ -187,19 +193,55 @@ poisson_v_nb_v_obs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = r
   geom_col(position = position_dodge(width=0.7), width=0.5) +
   scale_fill_manual(values = my_palette) +
   labs(
-    title = "Observed vs Poisson vs Negative Binomial Distributions",
+    title = expression("Observed vs Poisson vs Negative Binomial (" *theta* " = 10)"),
     x = "Goals Scored",
     y = "Relative Frequency",
     fill = NULL
   ) +
   scale_x_discrete(limits = as.character(0:6)) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
 poisson_v_nb_v_obs
 ggsave(filename = here("docs/viz","poisson_v_nb_v_obs.png"), poisson_v_nb_v_obs,
-       height=4, width=6, dpi=600)
+       bg = "white", height=4, width=6, dpi=600)
 
+
+# ---- Now set dispersion to 10,000 for demonstration ----
+
+# Set dispersion parameter (lower = more dispersion)
+size_nb <- 10000
+
+# Join and fill in missing observed values as 0
+goal_counts <- goal_counts %>%
+  mutate(negbin = dnbinom(goals_for, size = size_nb, mu = lambda_all))
+
+# Convert to long format
+goal_plot_data <- goal_counts %>%
+  pivot_longer(cols = c("observed", "poisson", "negbin"), names_to = "type", values_to = "rel_freq")
+
+# Plot
+goal_plot_data$type <- factor(goal_plot_data$type, levels = c("observed", "poisson", "negbin"),
+                              labels = c("Observed", "Poisson", "Neg. Binomial"))
+
+poisson_v_nb_v_obs <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel_freq, fill = type)) +
+  geom_col(position = position_dodge(width=0.7), width=0.5) +
+  scale_fill_manual(values = my_palette) +
+  labs(
+    title = expression("Observed vs Poisson vs Negative Binomial (" *theta* " = 10,000)"),
+    x = "Goals Scored",
+    y = "Relative Frequency",
+    fill = NULL
+  ) +
+  scale_x_discrete(limits = as.character(0:6)) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+poisson_v_nb_v_obs
+ggsave(filename = here("docs/viz","poisson_v_nb_v_obs_10k.png"), poisson_v_nb_v_obs,
+       bg = "white", height=4, width=6, dpi=600)
 
 
 # ---- Compare observed vs Poisson & NB, conditional on opponent goals ----
@@ -235,6 +277,7 @@ plot_conditional <- function(df, opp_goals, size_nb = 10) {
       y = NULL,
       fill = NULL
     ) +
+    theme_minimal() +
     theme(
       plot.title = element_text(hjust = 0.5, size = 10),
       legend.position = "bottom"
@@ -249,14 +292,16 @@ cond_plots <- plot_conditional(matches_long, 0) +
   theme(legend.position = "bottom")
 
 cond_plots
-ggsave(filename = here("docs/viz","cond_plots.png"), cond_plots, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","cond_plots.png"), cond_plots, 
+       bg="white", height=4, width=6, dpi=600)
 
 # ---- Histogram of Elo diff distribution ----
 
 ggplot(matches_long, aes(x=net_elo)) +
   geom_histogram(color="grey", fill=my_palette[1], boundary=0) +
   labs(title = "Histogram of Net Elo Difference",
-       x = "Elo Difference")
+       x = "Elo Difference") +
+  theme_minimal()
 
 # ---- Conditional comparisons for close games (not big favs)
 
@@ -357,13 +402,14 @@ fav_goals_fitted <- ggplot(goal_plot_data, aes(x = as.factor(goals_for), y = rel
   ) +
   # Plot
   scale_x_discrete(limits = as.character(0:5)) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
 fav_goals_fitted
 
 ggsave(filename = here("docs/viz", "fav_goals_fitted.png"), fav_goals_fitted,
-       height = 4, width = 6, dpi = 600)
+       bg="white", height = 4, width = 6, dpi = 600)
 
 # ---- Now plot the underdog goals conditional on fav goals ----
 
@@ -417,6 +463,7 @@ plot_conditional_underdog <- function(df, fav_goals, size_nb = 5) {
       y = NULL,
       fill = NULL
     ) +
+    theme_minimal() +
     theme(
       plot.title = element_text(hjust = 0.5, size = 10),
       legend.position = "bottom"
@@ -424,17 +471,17 @@ plot_conditional_underdog <- function(df, fav_goals, size_nb = 5) {
 }
 
 
-underdog_cond_plots <- plot_conditional_underdog(favs, 0) +
-  plot_conditional_underdog(favs, 1) +
-  plot_conditional_underdog(favs, 2) +
-  plot_conditional_underdog(favs, 3) +
+underdog_cond_plots <- plot_conditional_underdog(favs, 0, size_nb = 5) +
+  plot_conditional_underdog(favs, 1, size_nb = 5) +
+  plot_conditional_underdog(favs, 2, size_nb = 5) +
+  plot_conditional_underdog(favs, 3, size_nb = 5) +
   plot_layout(guides = "collect") & 
   theme(legend.position = "bottom")
 
 underdog_cond_plots
 
-ggsave(filename = here("docs/viz", "underdog_cond_plots.png"),
-       underdog_cond_plots, height = 4, width = 6, dpi = 600)
+ggsave(filename = here("docs/viz", "underdog_cond_plots_disperson_5.png"),
+       bg="white", underdog_cond_plots, height = 4, width = 6, dpi = 600)
 
 # When fav scores 0, NB dispersion parameter is ~ 5. When fav scores 1 or more,
 # dispersion parameter is much higher. So we need different parameters for each score.
@@ -477,7 +524,7 @@ underdog_cond_plots_fitted <- plot_conditional_underdog(favs, 0, dispersion_para
 underdog_cond_plots_fitted
 
 ggsave(filename = here("docs/viz", "underdog_cond_plots_fitted_dispersion.png"),
-       underdog_cond_plots_fitted, height = 4, width = 6, dpi = 600)
+       bg="white", underdog_cond_plots_fitted, height = 4, width = 6, dpi = 600)
 
 # It still doesn't quite get the distribution right. So we need another parameter to
 # inflate the draw scores, and also adjust mu to counterbalance this.
@@ -581,6 +628,7 @@ plot_conditional_underdog <- function(df, fav_goals, size_nb, alpha) {
       y = NULL,
       fill = NULL
     ) +
+    theme_minimal() +
     theme(
       plot.title = element_text(hjust = 0.5, size = 10),
       legend.position = "bottom"
@@ -600,7 +648,7 @@ underdog_cond_pointmass <- plot_conditional_underdog(favs, 0, dispersion_with_po
 underdog_cond_pointmass
 
 ggsave(filename = here("docs/viz", "underdog_cond_pointmass.png"),
-       underdog_cond_pointmass, height = 4, width = 6, dpi = 600)
+       bg="white", underdog_cond_pointmass, height = 4, width = 6, dpi = 600)
 
 # Pretty good overall. 1-0 to the fav still seems slightly more common than expected.
 

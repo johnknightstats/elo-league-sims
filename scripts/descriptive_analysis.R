@@ -26,6 +26,9 @@ matches <- read_csv(here("data", "england_matches_with_elo.csv"))
 # home_elo
 # away_elo
 
+# Set a custom color palette
+my_palette <- c("#233D4D", "#FF9F1C", "#41EAD4", "#FDFFFC", "#F71735")
+
 # ---- Check missing values ----
 
 na_sum <- colSums(is.na(matches))
@@ -55,7 +58,7 @@ matches_long$side <- factor(matches_long$side, levels=c("home", "away"))
 
 ggplot(matches_long, aes(x=factor(goals), fill=side)) +
   geom_bar(position = position_dodge(width = 0.8), width = 0.7) +
-  scale_fill_manual(values=c("dodgerblue3", "goldenrod2")) +
+  scale_fill_manual(values = my_palette) +
   scale_x_discrete(breaks=c(0,1,2,3,4,5,6,7,8,9,10)) +
   labs(
     title = "Distribution of Home and Away Goals",
@@ -77,21 +80,26 @@ goals_by_season <- matches %>%
 
 ts_goals <- ts(goals_by_season$mean_goals, start = min(goals_by_season$season_year), frequency = 1)
 
-ggplot(goals_by_season, aes(x = season_year, y = mean_goals)) +
-  geom_line(color = "dodgerblue3", size = 1.2) +
-  geom_point(color = "dodgerblue3", size = 2) +
+goals_pg_seasons <- ggplot(goals_by_season, aes(x = season_year, y = mean_goals)) +
+  geom_line(color = my_palette[1], size = 1.2) +
+  geom_point(color = my_palette[2], size = 2) +
   scale_x_continuous(breaks=seq(1950,2020,10)) +
+  scale_y_continuous(limits=c(2,4)) +
+  theme_minimal() +
   labs(
     title = "Average Goals per Match by Season",
     x = "Season",
-    y = "Average Goals per Match"
-  ) +
-  theme_minimal(base_size = 14) +
+    y = "Average Goals per Match") +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.title = element_text(hjust = 0.5),
     axis.title.x = element_text(hjust = 0.5),
     axis.title.y = element_text(hjust = 0.5)
   )
+  
+
+goals_pg_seasons
+ggsave(filename = here("docs/viz","goals_pg_seasons.png"), goals_pg_seasons, 
+       bg = "white", height=4, width=6, dpi=600)
 
 # Home supremacy time series
 matches$home_supremacy <- matches$home_goals - matches$away_goals
@@ -102,21 +110,26 @@ supremacy_by_season <- matches %>%
   summarise(mean_supremacy = mean(home_supremacy)) %>%
   arrange(season_year)
 
-ggplot(supremacy_by_season, aes(x = season_year, y = mean_supremacy)) +
-  geom_point(color = "dodgerblue3", size = 2) +
-  geom_line(color = "dodgerblue3", size = 1) +
+home_suprem_seasons <- ggplot(supremacy_by_season, aes(x = season_year, y = mean_supremacy)) +
+  geom_line(color = my_palette[1], size = 1.2) +
+  geom_point(color = my_palette[2], size = 2) +
   scale_x_continuous(breaks=seq(1950,2020,10)) +
   labs(
     title = "Mean Home Supremacy by Season",
     x = "Season",
     y = "Mean Home Supremacy"
   ) +
-  theme_minimal(base_size = 14) +
+  theme_minimal() +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.title = element_text(hjust = 0.5),
     axis.title.x = element_text(hjust = 0.5),
     axis.title.y = element_text(hjust = 0.5)
   )
+
+home_suprem_seasons
+ggsave(filename = here("docs/viz","home_suprem_seasons.png"), home_suprem_seasons, 
+       bg = "white", height=4, width=6, dpi=600)
+
 
 # ---- Look at mean and SD of Elo ratings by season ----
 
@@ -135,19 +148,23 @@ elo_summary <- elo_summary %>%
     lower = mean_elo - sd_elo
   )
 
-ggplot(elo_summary, aes(x = season_year, y = mean_elo)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "goldenrod2", alpha = 0.3) +
-  geom_line(color = "dodgerblue3", size = 1.2) +
-  geom_point(color = "dodgerblue3", size = 2) +
+elo_mean_seasons <- ggplot(elo_summary, aes(x = season_year, y = mean_elo)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = my_palette[3], alpha = 0.3) +
+  geom_line(color = my_palette[1], size = 1.2) +
+  geom_point(color = my_palette[2], size = 2) +
   scale_x_continuous(breaks=seq(1950,2020,10)) +
   labs(
-    title = "Mean Elo per Season with ±1 SD Band",
+    title = "Mean Elo Rating by Season",
     x = "Season",
     y = "Elo Rating"
   ) +
-  theme_minimal(base_size = 14) +
+  theme_minimal() +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.title = element_text(hjust = 0.5),
     axis.title.x = element_text(hjust = 0.5),
     axis.title.y = element_text(hjust = 0.5)
   )
+
+elo_mean_seasons
+ggsave(filename = here("docs/viz","elo_mean_seasons.png"), elo_mean_seasons, 
+       bg = "white", height=4, width=6, dpi=600)

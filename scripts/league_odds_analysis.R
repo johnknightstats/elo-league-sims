@@ -179,7 +179,7 @@ annotations_df <- data.frame(team=c("Manchester United", "Manchester United",
                              nudge_x=c(0,0,0,-3,0),
                              nudge_y=c(0,0,0,0.05,0))
 date_breaks <- "3 days"
-table_display_dates = "2012-04-08"
+table_display_dates = "2012-04-09"
 team_show = "Manchester United"
 
 
@@ -196,14 +196,16 @@ teams_df <- data.frame(team=c("Liverpool", "Arsenal"),
                        title_bin = c(0,1),
                        colours = c("red", "yellow"))
 annotations_df <- data.frame(team=c("Arsenal", "Arsenal", "Arsenal",
-                                    "Liverpool", "Liverpool", "Liverpool"),
+                                    "Liverpool", "Arsenal", "Liverpool", "Liverpool"),
                              match_date=c("1989-05-01", "1989-05-06", "1989-05-13",
-                                          "1989-05-13", "1989-05-23", "1989-05-26"),
+                                          "1989-05-13", "1989-05-17",
+                                          "1989-05-23", "1989-05-26"),
                              caption=c("Arsenal 5\nNorwich 0", "Middlesbrough 0\nArsenal 1",
                                        "Arsenal 1\nDerby 2", "Wimbledon 1\nLiverpool 2",
+                                       "Arsenal 2\nWimbledon 2",
                                        "Liverpool 5\nWest Ham 1", "Liverpool 0\nArsenal 2"),
-                             nudge_x=c(0,0,0,0,-3,-1),
-                             nudge_y=c(0.15,0,0,0,0,0.3))
+                             nudge_x=c(0,0,0,0,0,-3,-1),
+                             nudge_y=c(0.15,0,0,0,0,0,0.2))
 date_breaks <- "3 days"
 table_display_dates <- c("1989-05-06", "1989-05-23")
 team_show <- "Liverpool"
@@ -217,16 +219,18 @@ file_abbrev <- "li_14"
 myseason <- "2013-2014"
 teams_df <- data.frame(team=c("Liverpool", "Manchester City", "Chelsea"),
                        title_bin = c(0,1,0),
-                       colours = c("Red", "Skyblue", "Blue"))
-annotations_df <- data.frame(team=c("Liverpool", "Liverpool", "Liverpool", 
+                       colours = c("red", "skyblue", "blue"))
+annotations_df <- data.frame(team=c("Liverpool", "Chelsea", "Liverpool", "Liverpool", 
                                     "Manchester City", "Liverpool", "Manchester City"),
-                             match_date=c("2014-04-13", "2014-04-20", "2014-04-27",
+                             match_date=c("2014-04-13", "2014-04-19",
+                                          "2014-04-20", "2014-04-27",
                                           "2014-05-03", "2014-05-05", "2014-05-11"),
-                             caption=c("Liverpool 3\nMan C 2", "Norwich 2\nLiverpool 3",
+                             caption=c("Liverpool 3\nMan C 2", "Chelsea 1\nSunderland 2",
+                                       "Norwich 2\nLiverpool 3",
                                        "Liverpool 0\nChelsea 2", "Everton 2\nMan C 3",
                                        "C Palace 3\nLiverpool 3", "Man C 2\nWest Ham 0"),
-                             nudge_x=c(0,0,0,2,0,0),
-                             nudge_y=c(0,0,0,-0.1,0,0))
+                             nudge_x=c(0,0,0,0,2,0,0),
+                             nudge_y=c(0,0,0,0,-0.1,0,0))
 date_breaks <- "3 days"
 table_display_dates = "2014-04-20"
 team_show = "Liverpool"

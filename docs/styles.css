@@ -1,0 +1,29 @@
+.centered-block {
+  text-align: center;
+  margin-top: 0em;
+  margin-bottom: 0.5em;
+}
+
+.centered-block strong {
+  display: block;
+  font-size: 1.3em;
+  margin-bottom: -0.2em;
+}
+
+.centered-block em {
+  display: block;
+  font-size: 0.9em;
+  margin-top: -0.5em;
+}
+
+.responsive-table-wrapper {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.tight-title {
+  display: block;
+  margin-bottom: 0em;
+}
+

@@ -389,10 +389,12 @@ deciles_new <- ggplot(deciles, aes(x = mean_pred_win, y = actual_win_rate)) +
     x = "Mean Predicted Win Probability",
     y = "Actual Win Rate"
   ) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
 deciles_new
-ggsave(filename = here("docs/viz","deciles_new.png"), deciles_new, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","deciles_new.png"), deciles_new,
+       bg = "white", height=4, width=6, dpi=600)
 
 
 # ---- Compare predicted W-D-L versus actual results ----
@@ -421,11 +423,13 @@ wdl <- ggplot(plot_data, aes(x = Outcome, y = value, fill = Type)) +
     x = "Outcome",
     y = "Proportion"
   ) +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 
 wdl
-ggsave(filename = here("docs/viz","wdl.png"), deciles_new, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","wdl.png"), wdl, 
+       bg = "white", height=4, width=6, dpi=600)
 
 # ---- Compare predicted scorelines with actual scorelines ----
 
@@ -460,12 +464,15 @@ model_v_scores <- ggplot(plot_data, aes(x = scoreline, y = value, fill = type)) 
   labs(
     title = "Predicted vs Actual Scorelines (0–0 to 3–3)",
     x = "Scoreline (Favourite First)",
-    y = "Proportion"
+    y = "Proportion",
+    legend = element_blank()
   ) +
+  theme_minimal() +
   theme(
     plot.title = element_text(hjust = 0.5),
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
 model_v_scores
-ggsave(filename = here("docs/viz","model_v_scores.png"), model_v_scores, height=4, width=6, dpi=600)
+ggsave(filename = here("docs/viz","model_v_scores.png"), model_v_scores, 
+       bg = "white", height=4, width=6, dpi=600)
