@@ -67,8 +67,6 @@ You'll need R and the following packages:
 - `glue`
 - `webshot2`
 
-You can optionally add a `requirements.R` file or use [`renv`](https://rstudio.github.io/renv/) to snapshot your dependencies.
-
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
